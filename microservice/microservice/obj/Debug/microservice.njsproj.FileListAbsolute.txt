@@ -1,0 +1,3 @@
+C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\microservice\microservice\obj\Debug\microservice.njsproj.AssemblyReference.cache
+C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\microservice\microservice\obj\Debug\microservice.njsproj.CoreCompileInputs.cache
+C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\microservice\microservice\bin\Microsoft.NodejsTools.WebRole.dll
