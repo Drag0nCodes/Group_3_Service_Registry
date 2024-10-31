@@ -180,7 +180,7 @@ function register(req, res) {
     req.on('end', () => {
         // Parse the form data
         const formData = new URLSearchParams(body);
-        const url = formData.get('regurl'); // Retrieve the stock symbol input
+        const url = formData.get('regurl'); // Retrieve the registry url input
 
         regs.push(url);
     });
