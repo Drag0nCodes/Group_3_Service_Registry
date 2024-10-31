@@ -1,0 +1,3 @@
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\registry\registry\obj\Debug\registry.njsproj.AssemblyReference.cache
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\registry\registry\obj\Debug\registry.njsproj.CoreCompileInputs.cache
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\registry\registry\bin\Microsoft.NodejsTools.WebRole.dll

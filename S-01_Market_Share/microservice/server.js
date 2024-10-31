@@ -6,36 +6,48 @@ var path = require('path');
 var port = process.env.PORT || 1337;
 
 // Microservice ID for heartbeat
-const serviceId = 'microservice';
+const serviceId = 'S-01';
+// Array of registries
+const regs = ["localhost:3000"];
 
-// Function to serve regular HTML files
-function serveFile(res, filePath) {
-    fs.readFile(filePath, (err, data) => {
+// Create the server
+http.createServer(function (req, res) {
+    // Route the request based on the req params
+    if (req.method === 'GET' && req.url === '/') { // Serve index with no stock data
+        serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", ""]);
+
+    } else if (req.method === 'POST' && req.url === '/') { // Handle a POST request to show stock data
+        handleStockFormPost(req, res);
+
+    } else if (req.method === 'POST' && req.url === '/register') { // Register a new MS
+        register(req, res);
+
+    } else if (req.url === '/extra') { // Serve extra.html if the URL is "/extra"
+        serveFile(res, path.join(__dirname, 'public/extra.html'));
+
+    } else { // If the route is not found, return 404
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('404 Not Found\n');
+    }
+}).listen(port, () => {
+    console.log(`Server running at http://localhost:${port}/`);
+});
+
+// Function to serve HTML files with replacing data based on array elements
+function serveFile(res, filePath, replace = []) {
+    fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
             // Return a 404 if the file is not found
             res.writeHead(404, { 'Content-Type': 'text/plain' });
             res.end('404 Not Found\n');
         } else {
+            for (let i = 0; i < data.length; i += 2) {
+                data = data.replace(replace[i], replace[i + 1]);
+            }
+
             // Return the HTML content
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(data);
-        }
-    });
-}
-
-function serveIndexWithAPIData(res, apiData) {
-    let filePath = path.join(__dirname, 'public/index.html');
-
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            res.writeHead(500, { 'Content-Type': 'text/plain' });
-            res.end('Error: Could not find or open file for reading\n');
-        } else {
-            // Insert the API data into the HTML by replacing 
-            let modifiedHtml = data.replace('{{apiData}}', apiData);
-
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(modifiedHtml); // Serve the modified HTML with API data
         }
     });
 }
@@ -94,28 +106,8 @@ function getApiData(callback, symbol) {
     });
 }
 
-// Create the server
-http.createServer(function (req, res) {
-    // Route the request based on the URL
-    if (req.method === 'GET' && req.url === '/') {
-        // Fetch API data before serving index.html
-        serveIndexWithAPIData(res, "");
-    } else if (req.method === 'POST' && req.url === '/') {
-            handleFormPost(req, res);
-    } else if (req.url === '/extra') {
-        // Serve about.html if the URL is "/about"
-        serveFile(res, path.join(__dirname, 'public/extra.html'));
-    } else {
-        // If the route is not found, return 404
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('404 Not Found\n');
-    }
-}).listen(port, () => {
-    console.log(`Server running at http://localhost:${port}/`);
-});
-
-// Function to handle the POST request and parse form data
-function handleFormPost(req, res) {
+// Function to handle the POST request and parse form data for getting stock info
+function handleStockFormPost(req, res) {
     let body = '';
 
     req.on('data', chunk => {
@@ -129,7 +121,7 @@ function handleFormPost(req, res) {
 
         getApiData((apiData) => {
             // Serve index.html with the API data
-            serveIndexWithAPIData(res, apiData);
+            serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", apiData]);
         }, symbol);
     });
 }
@@ -142,41 +134,63 @@ function sendHeartbeat() {
         timestamp: new Date().toISOString()
     });
 
-    const options = { // The address and info for the registry
-        hostname: 'localhost:3000',
-        port: 80, // For HTTPS, use 443. For HTTP, use 80.
-        path: '/heartbeat',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length
-        }
-    };
+    for (let i = 0; i < regs.length; i++) {
+        console.log('Sending heartbeat ' + i + '...');
+        const options = { // The address and info for the registry
+            hostname: regs[i].split(":")[0].trim(),
+            port: Number(regs[i].split(":")[1].trim()),  // Might cause an issue when different address are used without port, for HTTPS, use 443. For HTTP, use 80.
+            path: '/heartbeat',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': data.length
 
-    const req = https.request(options, (res) => {
-        let responseData = '';
+            }
+        };
 
-        res.on('data', (chunk) => {
-            responseData += chunk;
+        const req = http.request(options, (res) => {
+            let responseData = '';
+
+            res.on('data', (chunk) => {
+                responseData += chunk;
+            });
+
+            res.on('end', () => {
+                console.log(`Heartbeat sent. Response: ${responseData}`);
+            });
         });
 
-        res.on('end', () => {
-            console.log(`Heartbeat sent. Response: ${responseData}`);
+        req.on('error', (error) => {
+            console.error(`Error sending heartbeat ` + i + `: ${error.message}`);
         });
-    });
 
-    req.on('error', (error) => {
-        console.error(`Error sending heartbeat: ${error.message}`);
-    });
-
-    req.write(data);
-    req.end();
+        req.write(data);
+        req.end();
+    }
 }
 
+// Function to register the microservice to a registry
+function register(req, res) {
+    let body = '';
+
+    req.on('data', chunk => {
+        body += chunk;
+    });
+
+    req.on('end', () => {
+        // Parse the form data
+        const formData = new URLSearchParams(body);
+        const url = formData.get('regurl'); // Retrieve the stock symbol input
+
+        regs.push(url);
+    });
+    serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", ""]);
+}
+
+sendHeartbeat();
 // Set an interval to send the heartbeat every 15 seconds
 setInterval(() => {
-    console.log('Sending heartbeat...');
     sendHeartbeat();
-}, 15000); // 15 seconds
+}, 5000); // 15 seconds
 
 

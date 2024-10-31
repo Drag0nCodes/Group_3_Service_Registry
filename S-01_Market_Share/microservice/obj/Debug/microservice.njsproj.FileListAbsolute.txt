@@ -4,3 +4,6 @@ C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\
 C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\S-01_Market_Share\microservice\obj\Debug\microservice.njsproj.AssemblyReference.cache
 C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\S-01_Market_Share\microservice\obj\Debug\microservice.njsproj.CoreCompileInputs.cache
 C:\Users\colin\OneDrive - The University of Western Ontario\Fourth Year\CS 4471\3_Service_Registry\S-01_Market_Share\microservice\bin\Microsoft.NodejsTools.WebRole.dll
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\S-01_Market_Share\microservice\obj\Debug\microservice.njsproj.AssemblyReference.cache
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\S-01_Market_Share\microservice\obj\Debug\microservice.njsproj.CoreCompileInputs.cache
+C:\Users\colin\OneDrive\Documents\Group_3_Service_Registry\S-01_Market_Share\microservice\bin\Microsoft.NodejsTools.WebRole.dll
