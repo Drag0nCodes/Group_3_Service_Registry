@@ -82,18 +82,25 @@ function handleFormPost(req, res) {
 function processHeartbeat(req, res) {
     let body = '';
 
-    req.on('data', chunk => {
-        body += chunk;
-    });
+    if (req.headers['content-type'] === 'application/json') {
 
-    req.on('end', () => {
-        // Parse the form data
-        const { serviceId, status, timestamp } = JSON.parse(body);
+        req.on('data', chunk => {
+            body += chunk;
+        });
 
-        console.log(timestamp + " - Heartbeat recieved from " + serviceId + ": " + status);
+        req.on('end', () => {
+            // Parse the form data
+            const { serviceId, status, timestamp } = JSON.parse(body);
 
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-    });
+            console.log(timestamp + " - Heartbeat recieved from " + serviceId + ": " + status);
+
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end("Heartbeat received")
+        });
+    } else {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('400 Bad Request');
+    }
 }
 
 // Function to handle registering a microservice to the registry

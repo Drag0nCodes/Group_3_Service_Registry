@@ -187,10 +187,15 @@ function register(req, res) {
     serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", ""]);
 }
 
+// Function to deregister the microservice from a registry
+function deregister(req, res) {
+
+}
+
 sendHeartbeat();
 // Set an interval to send the heartbeat every 15 seconds
 setInterval(() => {
     sendHeartbeat();
-}, 5000); // 15 seconds
+}, 15000); // 15 seconds
 
 
