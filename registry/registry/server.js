@@ -7,7 +7,7 @@ var port = process.env.PORT || 3000;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 
 // Registered microservices
-const msArr = ["S-01", "S-02"];
+const msArr = [['S-01', 'Available', "http://localhost:1337"], ['S-02', 'Unavailable', "localhost:1338"]];
 
 // Create the server
 http.createServer(function (req, res) {
@@ -15,7 +15,13 @@ http.createServer(function (req, res) {
     if (req.method === 'GET' && req.url === '/') { // Serve the index.html page
         let replace = ["{{microservices}}", ""];
         for (let i = 0; i < msArr.length; i++) {
-            replace[1] = replace[1] += "<div class=\"row\"><div class=\"col-12 col-sm-6 col-lg-8\">" + msArr[i] + "</div><div class=\"col-6 col-lg-4\">Available/Unavailable</div></div>";
+            replace[1] = replace[1] += 
+            "<div class=\"row\"> \
+                <div class=\"col-12 col-sm-6 col-lg-8\"> \
+                    <a target=\"_blank\" href=\"" + msArr[i][2] + "\">" + msArr[i][0] + "</a> \
+                </div >\
+                <div class=\"col-6 col-lg-4\">" + msArr[i][1] + "</div > \
+            </div > ";
         }
 
         serveFile(res, path.join(staticDir, 'index.html'), replace);
