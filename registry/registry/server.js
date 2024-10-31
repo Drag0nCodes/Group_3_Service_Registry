@@ -4,10 +4,11 @@ var https = require('https');
 var fs = require('fs');
 var path = require('path');
 var port = process.env.PORT || 3000;
+const timeout = 35;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 
 // Registered microservices
-const msArr = [['S-01', 'Available', "http://localhost:1337"], ['S-02', 'Unavailable', "localhost:1338"]];
+const msArr = [{ name: 'S-01', status: 'Unavailable', addr: 'http://localhost:1337', timeout: 0}, { name: 'S-02', status: 'Unavailable', addr: 'http://localhost:1338', timeout: 0}];
 
 // Create the server
 http.createServer(function (req, res) {
@@ -18,9 +19,9 @@ http.createServer(function (req, res) {
             replace[1] = replace[1] += 
             "<div class=\"row\"> \
                 <div class=\"col-12 col-sm-6 col-lg-8\"> \
-                    <a target=\"_blank\" href=\"" + msArr[i][2] + "\">" + msArr[i][0] + "</a> \
+                    <a target=\"_blank\" href=\"" + msArr[i]["addr"] + "\">" + msArr[i]["name"] + "</a> \
                 </div >\
-                <div class=\"col-6 col-lg-4\">" + msArr[i][1] + "</div > \
+                <div class=\"col-6 col-lg-4\">" + msArr[i]["status"] + "</div > \
             </div > ";
         }
 
@@ -141,6 +142,14 @@ function processHeartbeat(req, res) {
 
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             res.end("Heartbeat received")
+
+            for (let i = 0; i < msArr.length; i++) {
+                if (msArr[i]["name"] === serviceId) {
+                    msArr[i]["timeout"] = timeout;
+                    msArr[i]["status"] = "Available";
+                    break;
+                }
+            }
         });
     } else {
         res.writeHead(400, { 'Content-Type': 'text/plain' });
@@ -157,3 +166,17 @@ function registerMS() {
 function deregisterMS() {
 
 }
+
+function runTimeout() {
+    for (let i = 0; i < msArr.length; i++) {
+        if (msArr[i]["timeout"] <= 0) continue; // If already timed out, skip
+        if (--msArr[i]["timeout"] <= 0) { // Decrease microservice's timeout val and if <= 0, set to unavailable
+            msArr[i]["status"] = "Unavailable";
+            console.log(`${msArr[i]["name"]} is no longer available due to heartbeat timeout`)
+        }
+    }
+}
+
+setInterval(() => {
+    runTimeout();
+}, 1000); // 1 second
