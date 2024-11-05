@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- saved from url=(0060)https://getbootstrap.com/docs/4.0/examples/starter-template/ -->
 <html lang="en"><head>
-  <title>Market Share Calculator | Home</title>
+  <title>Market Share Calculator | Settings</title>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">  
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   
@@ -25,10 +25,10 @@
 
     <div class="collapse navbar-collapse" id="navbarsExampleDefault">
       <ul class="navbar-nav mr-auto">
-        <li class="nav-item active">
+        <li class="nav-item">
           <a class="nav-link" href="/">Home</a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item active">
           <a class="nav-link" href="/settings">Settings</a>
        </li>
       </ul>
@@ -37,13 +37,12 @@
 
   <main role="main" class="container">
     <div class="starter-template">
-      <h3>Market Share Calcuator</h3>
-      <p>Enter a stock's symbol below to calculate it's market share and see other information about it.</p>
-      <form action="" method="post" class="form-inline">
-        <input class="form-control mr-sm-2" type="text" placeholder="Stock Symbol" name="symbol" id="symbol"/><br/>
-        <button class="btn btn-outline-primary my-2" type="submit">Search</button>
+      <h3>Settings</h3>
+      <p>Enter the URL of a registry below to register and start sending heartbeats to it.</p>
+      <form action="/register" method="post" class="form-inline">
+        <input class="form-control mr-sm-2" type="text" placeholder="Registry URL" name="regurl" id="regurl"/><br/>
+        <button class="btn btn-outline-primary my-2" type="submit">Add to Registry</button>
       </form>
-      <p>{{apiData}}</p>
     </div>
   </main>
 

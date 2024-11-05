@@ -4,6 +4,7 @@ var https = require('https');
 var fs = require('fs');
 var path = require('path');
 var port = process.env.PORT || 1337;
+const staticDir = path.join(__dirname, 'public'); // Set static directory
 
 // Microservice ID for heartbeat
 const serviceId = 'S-01';
@@ -14,7 +15,7 @@ const regs = ["localhost:3000"];
 http.createServer(function (req, res) {
     // Route the request based on the req params
     if (req.method === 'GET' && req.url === '/') { // Serve index with no stock data
-        serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", ""]);
+        serveFile(res, path.join(staticDir, 'index.html'), ["{{apiData}}", ""]);
 
     } else if (req.method === 'POST' && req.url === '/') { // Handle a POST request to show stock data
         handleStockFormPost(req, res);
@@ -22,8 +23,12 @@ http.createServer(function (req, res) {
     } else if (req.method === 'POST' && req.url === '/register') { // Register a new MS
         register(req, res);
 
-    } else if (req.url === '/extra') { // Serve extra.html if the URL is "/extra"
-        serveFile(res, path.join(__dirname, 'public/extra.html'));
+    } else if (req.url === '/settings') { // Serve extra.html if the URL is "/extra"
+        serveFile(res, path.join(staticDir, 'settings.html'));
+
+    } else if (req.method === 'GET') {
+        // Serve static files
+        serveStaticFile(req, res);
 
     } else { // If the route is not found, return 404
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -48,6 +53,39 @@ function serveFile(res, filePath, replace = []) {
             // Return the HTML content
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(data);
+        }
+    });
+}
+
+// Function to serve static files (CSS, JS, images, etc.)
+function serveStaticFile(req, res) {
+    // Resolve the requested file path relative to the public directory
+    const filePath = path.join(staticDir, req.url);
+
+    // Check if the file exists
+    fs.access(filePath, fs.constants.F_OK, (err) => {
+        if (err) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found\n');
+            console.log(`Could not get file ${filePath}`);
+        } else {
+            // Detect the content type based on file extension
+            const extname = path.extname(filePath);
+            const mimeTypes = {
+                '.html': 'text/html',
+                '.css': 'text/css',
+                '.js': 'application/javascript',
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.gif': 'image/gif'
+            };
+
+            const contentType = mimeTypes[extname] || 'application/octet-stream';
+
+            // Serve the file as a stream
+            res.writeHead(200, { 'Content-Type': contentType });
+            const readStream = fs.createReadStream(filePath);
+            readStream.pipe(res);
         }
     });
 }
