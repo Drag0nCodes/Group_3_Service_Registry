@@ -27,9 +27,6 @@ http.createServer(function (req, res) {
 
         serveFile(res, path.join(staticDir, 'index.html'), replace);
 
-    } else if (req.method === 'GET' && req.url === '/extra') { // Serve extra.html if the URL is "/extra"
-        serveFile(res, path.join(staticDir, 'extra.html'));
-
     } else if (req.method === 'POST' && req.url === '/') { // Handle a post request to 
         handleFormPost(req, res);
 
