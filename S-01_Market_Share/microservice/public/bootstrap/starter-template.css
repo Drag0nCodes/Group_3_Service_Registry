@@ -3,6 +3,8 @@ body {
 }
 .starter-template {
   padding: 3rem 1.5rem;
+  margin: 0 auto;
+  max-width: 600px; /* Optional: set a max-width to control the width */
 }
 
 body {
@@ -10,12 +12,15 @@ body {
   padding-bottom: 2rem;
 }
 
-h3 {
+h3, h5 {
   margin-top: 2rem;
 }
 
 .row {
   margin-bottom: 1rem;
+  margin-right: -7rem;
+  max-width: 600px;
+  display: none;
 }
 .row .row {
   margin-top: 1rem;
@@ -31,4 +36,8 @@ h3 {
 hr {
   margin-top: 2rem;
   margin-bottom: 2rem;
+}
+
+.info {
+  margin-left: 1rem;
 }

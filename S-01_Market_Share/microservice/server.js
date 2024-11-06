@@ -9,7 +9,7 @@ const staticDir = path.join(__dirname, 'public'); // Set static directory
 // Microservice ID for heartbeat
 const serviceId = 'S-01';
 // Array of registries
-const regs = ["localhost:3000"];
+const regs = [];
 
 // Create the server
 http.createServer(function (req, res) {
@@ -17,14 +17,21 @@ http.createServer(function (req, res) {
     if (req.method === 'GET' && req.url === '/') { // Serve index with no stock data
         serveFile(res, path.join(staticDir, 'index.html'), ["{{apiData}}", ""]);
 
-    } else if (req.method === 'POST' && req.url === '/') { // Handle a POST request to show stock data
-        handleStockFormPost(req, res);
+    } else if (req.method === 'POST' && req.url === '/getStock') { // Handle a POST request to show stock data
+        getStock(req, res);
 
     } else if (req.method === 'POST' && req.url === '/register') { // Register a new MS
         register(req, res);
 
+    } else if (req.method === 'POST' && req.url === '/deregister') { // Register a new MS
+        deregister(req, res);
+
     } else if (req.url === '/settings') { // Serve extra.html if the URL is "/extra"
-        serveFile(res, path.join(staticDir, 'settings.html'));
+        let replace = ["{{selections}}", ""];
+        for (let i = 0; i < regs.length; i++) {
+            replace[1] = replace[1] += `<option value=\"${regs[i]}\">${regs[i]}</option>`;
+        }
+        serveFile(res, path.join(staticDir, 'settings.html'), replace);
 
     } else if (req.method === 'GET') {
         // Serve static files
@@ -121,14 +128,14 @@ function getApiData(callback, symbol) {
 
                         // Create a string to show relevant information in the HTML
                         let apiDataString = `
-                    Symbol: ${metaData["2. Symbol"]} <br>
-                    Last Refreshed: ${metaData["3. Last Refreshed"]} <br>
-                    Latest Open: ${latestData["1. open"]} <br>
-                    Latest Close: ${latestData["4. close"]} <br>
+                    Symbol: ${metaData["2. Symbol"]} \n
+                    Last Refreshed: ${metaData["3. Last Refreshed"]} \n
+                    Latest Open: ${latestData["1. open"]} \n
+                    Latest Close: ${latestData["4. close"]} \n
                     Latest Volume: ${latestData["5. volume"]}
                 `;
 
-                        callback(apiDataString); // Pass the stringified data to the callback
+                        callback(Object.assign({}, metaData, latestData)); // Pass the stringified data to the callback
 
                     } catch (error) {
                         console.error('Error parsing JSON: ' + error.message);
@@ -145,7 +152,7 @@ function getApiData(callback, symbol) {
 }
 
 // Function to handle the POST request and parse form data for getting stock info
-function handleStockFormPost(req, res) {
+function getStock(req, res) {
     let body = '';
 
     req.on('data', chunk => {
@@ -154,13 +161,18 @@ function handleStockFormPost(req, res) {
 
     req.on('end', () => {
         // Parse the form data
-        const formData = new URLSearchParams(body);
-        const symbol = formData.get('symbol').toUpperCase(); // Retrieve the stock symbol input
-
-        getApiData((apiData) => {
-            // Serve index.html with the API data
-            serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", apiData]);
-        }, symbol);
+        try {
+            const formData = JSON.parse(body);
+            const symbol = formData["symbol"].toUpperCase(); // Retrieve the stock symbol input
+            getApiData((apiData) => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(apiData));
+            }, symbol);
+        } catch (err) {
+            console.error('Error parsing JSON:', err);
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid JSON');
+        }
     });
 }
 
@@ -173,16 +185,16 @@ function sendHeartbeat() {
     });
 
     for (let i = 0; i < regs.length; i++) {
-        console.log('Sending heartbeat ' + i + '...');
-        const options = { // The address and info for the registry
-            hostname: regs[i].split(":")[0].trim(),
-            port: Number(regs[i].split(":")[1].trim()),  // Might cause an issue when different address are used without port, for HTTPS, use 443. For HTTP, use 80.
+        const url = new URL(regs[i]); // This will parse the URL and handle various formats (e.g., with or without ports)
+
+        const options = {
+            hostname: url.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
             path: '/heartbeat',
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Content-Length': data.length
-
             }
         };
 
@@ -194,12 +206,12 @@ function sendHeartbeat() {
             });
 
             res.on('end', () => {
-                console.log(`Heartbeat sent. Response: ${responseData}`);
+                console.log(`${regs[i]}: Heartbeat sent. Response: ${responseData}`);
             });
         });
 
         req.on('error', (error) => {
-            console.error(`Error sending heartbeat ` + i + `: ${error.message}`);
+            console.error(`${regs[i]}: Error sending heartbeat. Response: ${error.message}`);
         });
 
         req.write(data);
@@ -217,17 +229,73 @@ function register(req, res) {
 
     req.on('end', () => {
         // Parse the form data
-        const formData = new URLSearchParams(body);
-        const url = formData.get('regurl'); // Retrieve the registry url input
-
-        regs.push(url);
+        try {
+            const formData = JSON.parse(body);
+            var url = formData["regurl"];
+            if (isValidURL(url)) {
+                if (!regs.includes(url)) {
+                    regs.push(url);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: "Registry Successful", url: url }));
+                    sendHeartbeat();
+                    console.error(`Successfully registered: ${url}`);
+                } else {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: "Already registered", url: null }));
+                }
+            } else {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: "Invalid URL", url: null }));
+            }
+        } catch (err) {
+            console.error('Error parsing JSON:', err);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: "Inavlid Reqiest", url: null }));
+        }
     });
-    serveFile(res, path.join(__dirname, 'public/index.html'), ["{{apiData}}", ""]);
+}
+
+function isValidURL(str) {
+    try {
+        const url = new URL(str);
+        return url.protocol === "http:" || url.protocol === "https:"; // Ensure http or https
+    } catch (error) {
+        return false;
+    }
 }
 
 // Function to deregister the microservice from a registry
 function deregister(req, res) {
+    let body = '';
 
+    req.on('data', chunk => {
+        body += chunk;
+    });
+
+    req.on('end', () => {
+        // Parse the form data
+        try {
+            const formData = JSON.parse(body);
+            var url = formData["deregSelect"];
+            const index = regs.indexOf(url);
+            if (index > -1) { // only splice array when item is found
+                regs.splice(index, 1); // 2nd parameter means remove one item only
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: "Deregistery Successfull", url: url}));
+
+                // Should also make a request to the reigstery to deregister it
+
+                console.error(`Successfully deregistered: ${url}`);
+            } else {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: "Could not find registry", url: null}));
+            }
+        } catch (err) {
+            console.error('Error parsing JSON:', err);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: "Invalid request/JSON", url: null}));
+        }
+    });
 }
 
 sendHeartbeat();

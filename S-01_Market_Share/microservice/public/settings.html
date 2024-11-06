@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com/" crossorigin="use-credentials">
   <link rel="preconnect" href="https://fonts.gstatic.com/">
   <link rel="stylesheet" href="./bootstrap/css2">
+  <script defer src="settings_app.js"></script>
 </head>
 
 <body>
@@ -38,10 +39,22 @@
   <main role="main" class="container">
     <div class="starter-template">
       <h3>Settings</h3>
+      <h5>Register in a Registry</h5>
       <p>Enter the URL of a registry below to register and start sending heartbeats to it.</p>
-      <form action="/register" method="post" class="form-inline">
+      <form id="registerForm" class="form-inline">
         <input class="form-control mr-sm-2" type="text" placeholder="Registry URL" name="regurl" id="regurl"/><br/>
         <button class="btn btn-outline-primary my-2" type="submit">Add to Registry</button>
+        <label id="regMessage" class="info"></label>
+      </form>
+
+      <h5>Deregister from a Registry</h5>
+      <p>Select the URL of a registry below to deregister from it.</p>
+      <form id="deregisterForm" class="form-inline">
+        <select id="deregSelect" name="deregSelect" class="form-control mr-sm-2">
+          {{selections}}
+        </select>
+        <button class="btn btn-outline-primary my-2" type="submit">Deregister</button>
+        <label id="deregMessage" class="info"></label>
       </form>
     </div>
   </main>
