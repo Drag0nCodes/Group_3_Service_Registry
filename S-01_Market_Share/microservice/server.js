@@ -26,7 +26,7 @@ http.createServer(function (req, res) {
     } else if (req.method === 'POST' && req.url === '/deregister') { // Register a new MS
         deregister(req, res);
 
-    } else if (req.url === '/settings') { // Serve extra.html if the URL is "/extra"
+    } else if (req.url === '/settings') { // Serve settings.html if the URL is "/settings"
         let replace = ["{{selections}}", ""];
         for (let i = 0; i < regs.length; i++) {
             replace[1] = replace[1] += `<option value=\"${regs[i]}\">${regs[i]}</option>`;
@@ -281,7 +281,7 @@ function deregister(req, res) {
             if (index > -1) { // only splice array when item is found
                 regs.splice(index, 1); // 2nd parameter means remove one item only
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Deregistery Successfull", url: url}));
+                res.end(JSON.stringify({ message: "Deregistery Successful", url: url}));
 
                 // Should also make a request to the reigstery to deregister it
 

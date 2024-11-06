@@ -34,6 +34,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(error => {
             regMessage.textContent = error.message; // Display the server's error message
         });
+        // Reset the regMessage after 5 seconds
+        setTimeout(() => {
+            regMessage.textContent = ''; // Clear the message
+        }, 3000);
     });
 
     deregisterForm.addEventListener('submit', (event) => {
@@ -60,10 +64,10 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .then(data => {
             deregMessage.textContent = data["message"]; // Display the server's response
-            if (data === "Deregistery Successfull") {
+            if (data["message"] === "Deregistery Successful") {
                 for (let i = 0; i < deregSelect.options.length; i++) {
                     if (deregSelect.options[i].value === data["url"]) {
-                        selectElement.remove(i); // Remove the option
+                        deregSelect.remove(i); // Remove the option
                         break; // Exit the loop once the option is found and removed
                     }
                 }
@@ -72,5 +76,9 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(error => {
             deregMessage.textContent = error.message; // Display the server's error message
         });
+        // Reset the deregMessage after 5 seconds
+        setTimeout(() => {
+            deregMessage.textContent = ''; // Clear the message
+        }, 3000);
     });
 });
