@@ -5,11 +5,20 @@ var fs = require('fs');
 var path = require('path');
 var port = process.env.PORT || 1337;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
+const os = require('os');
 
 // Microservice ID for heartbeat
 const serviceId = 'S-01';
 // Array of registries
-const regs = [];
+let regs = [];
+
+fs.readFile('regs.json', 'utf8', (err, data) => {
+    if (err) {
+        console.error('Error reading regs array:', err);
+        return;
+    }
+    regs = JSON.parse(data);
+});
 
 // Create the server
 http.createServer(function (req, res) {
@@ -42,7 +51,7 @@ http.createServer(function (req, res) {
         res.end('404 Not Found\n');
     }
 }).listen(port, () => {
-    console.log(`Server running at http://localhost:${port}/`);
+    console.log(`Server running at ${getServerUrl(port) }`);
 });
 
 // Function to serve HTML files with replacing data based on array elements
@@ -181,7 +190,8 @@ function sendHeartbeat() {
     const data = JSON.stringify({
         serviceId: serviceId,
         status: 'healthy',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        myUrl: getServerUrl(port)
     });
 
     for (let i = 0; i < regs.length; i++) {
@@ -207,6 +217,10 @@ function sendHeartbeat() {
 
             res.on('end', () => {
                 console.log(`${regs[i]}: Heartbeat sent. Response: ${responseData}`);
+
+                if (responseData === "Reregister") { // SOMEHOW REGISTER?
+                    
+                }
             });
         });
 
@@ -233,24 +247,76 @@ function register(req, res) {
             const formData = JSON.parse(body);
             var url = formData["regurl"];
             if (isValidURL(url)) {
-                if (!regs.includes(url)) {
-                    regs.push(url);
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ message: "Registry Successful", url: url }));
-                    sendHeartbeat();
-                    console.error(`Successfully registered: ${url}`);
-                } else {
+                if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
+                    const data = JSON.stringify({
+                       serviceId: serviceId,
+                       myUrl: getServerUrl(port)
+                   });
+                   const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
+
+                   const options = {
+                       hostname: regurl.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+                       port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
+                       path: '/register',
+                       method: 'POST',
+                       headers: {
+                           'Content-Type': 'application/json',
+                           'Content-Length': data.length
+                        }
+                    };
+
+                    const regreq = http.request(options, (regres) => {
+                        let responseData = '';
+
+                        regres.on('data', (chunk) => {
+                            responseData += chunk;
+                        });
+
+                        regres.on('end', () => {
+                            if (responseData === "Success") {
+                                console.log(`Registered. Response: ${responseData}`);
+                                regs.push(url);
+                                writeRegs();
+                                res.writeHead(200, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({ message: "Registry Successful", url: url }));
+                                console.error(`Successfully registered: ${url}`);
+                            }
+                            else if (responseData === "Already registered") {
+                                console.log(`Reregistered. Response: ${responseData}`);
+                                regs.push(url);
+                                writeRegs();
+                                res.writeHead(200, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({ message: "Reregistered Successfully.", url: url }));
+                                console.error(`Successfully reregistered: ${url}`);
+                            } else {
+                                res.writeHead(400, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({ message: "Error registering: " + responseData, url: null }));
+                                console.error(`Error registering: ${responseData}`);
+                            }
+                        });
+                    });
+
+                    regreq.on('error', (error) => {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ message: "Registry could not be contacted", url: null }));
+                        console.error(`Error registering. Response: ${error.message}`);
+                    });
+
+                    regreq.write(data);
+                    regreq.end();
+
+                } else { // microseervice already registered in registry
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ message: "Already registered", url: null }));
                 }
-            } else {
+            } else { // registry url not valid url
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ message: "Invalid URL", url: null }));
             }
-        } catch (err) {
+        } catch (err) { // Could not parse json from js
             console.error('Error parsing JSON:', err);
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: "Inavlid Reqiest", url: null }));
+            res.end(JSON.stringify({ message: "Inavlid Request", url: null }));
         }
     });
 }
@@ -280,6 +346,7 @@ function deregister(req, res) {
             const index = regs.indexOf(url);
             if (index > -1) { // only splice array when item is found
                 regs.splice(index, 1); // 2nd parameter means remove one item only
+                writeRegs();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ message: "Deregistery Successful", url: url}));
 
@@ -294,6 +361,33 @@ function deregister(req, res) {
             console.error('Error parsing JSON:', err);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ message: "Invalid request/JSON", url: null}));
+        }
+    });
+}
+
+// Get the local network IP address
+function getServerUrl(port) {
+    const networkInterfaces = os.networkInterfaces();
+    let ipAddress = 'localhost'; // default to localhost if no external IP is found
+
+    // Loop through network interfaces and find a non-internal IPv4 address
+    for (const interfaceName of Object.keys(networkInterfaces)) {
+        for (const network of networkInterfaces[interfaceName]) {
+            if (network.family === 'IPv4' && !network.internal) {
+                ipAddress = network.address;
+                break;
+            }
+        }
+    }
+
+    return `http://${ipAddress}:${port}`;
+}
+
+// Save the regs array to a json file
+function writeRegs() {
+    fs.writeFile('regs.json', JSON.stringify(regs, null, 2), (err) => {
+        if (err) {
+            console.error('Error writing file:', err);
         }
     });
 }
