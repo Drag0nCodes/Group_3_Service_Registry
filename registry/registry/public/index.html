@@ -13,9 +13,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com/" crossorigin="use-credentials">
   <link rel="preconnect" href="https://fonts.gstatic.com/">
   <link rel="stylesheet" href="./bootstrap/css2">
+  <script defer src="index_app.js"></script>
 </head>
 
-<body>
+<body onload="autoUpdate();">
 
   <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
     <a class="navbar-brand" href="/">Service Registry</a>
@@ -54,7 +55,9 @@
     <div class="starter-template">
       <h3>Microservices</h3>
       <p>Choose a microservice below to visit it</p>
-      {{microservices}}
+      <div id="microserviceList">
+        {{microservices}}
+      </div>
     </div>
   </main>
 

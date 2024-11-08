@@ -16,8 +16,8 @@ http.createServer(function (req, res) {
     if (req.method === 'GET' && req.url === '/') { // Serve the index.html page
         let replace = ["{{microservices}}", ""];
         for (let i = 0; i < msArr.length; i++) {
-            replace[1] = replace[1] += 
-            "<div class=\"row\"> \
+            replace[1] = replace[1] +=
+                "<div class=\"row\"> \
                 <div class=\"col-12 col-sm-6 col-lg-8\"> \
                     <a target=\"_blank\" href=\"" + msArr[i]["addr"] + "\">" + msArr[i]["name"] + "</a> \
                 </div >\
@@ -26,6 +26,9 @@ http.createServer(function (req, res) {
         }
 
         serveFile(res, path.join(staticDir, 'index.html'), replace);
+
+    } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices so js can auto update
+        returnMicroservices(req, res);
 
     } else if (req.method === 'POST' && req.url === '/') { // Handle a post request to 
         handleFormPost(req, res);
@@ -255,6 +258,12 @@ function runTimeout() {
             console.log(`${msArr[i]["name"]} is no longer available due to heartbeat timeout`)
         }
     }
+}
+
+// Function to return just the microservices to autoupdate page
+function returnMicroservices(req, res) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(msArr));
 }
 
 setInterval(() => {
