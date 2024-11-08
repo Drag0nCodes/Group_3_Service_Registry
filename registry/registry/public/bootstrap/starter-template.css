@@ -3,6 +3,8 @@ body {
 }
 .starter-template {
   padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 body {
@@ -31,4 +33,9 @@ h3 {
 hr {
   margin-top: 2rem;
   margin-bottom: 2rem;
+}
+
+.search {
+  align-self: flex-end;
+  padding-bottom: 0.5rem;
 }

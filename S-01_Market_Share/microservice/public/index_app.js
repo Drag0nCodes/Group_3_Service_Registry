@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     const getStockForm = document.getElementById('getStockForm');
     const table = document.getElementById('table');
+    const message = document.getElementById('message');
     const stock = document.getElementById('stock');
     const refresh = document.getElementById('refresh');
     const open = document.getElementById('open');
@@ -28,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return response.json(); // Parse the JSON response
         })
         .then(data => {
+            message.textContent = "";
             table.style.display = "flex";
             stock.textContent = data["2. Symbol"]; // Display the server's response
             refresh.textContent = data["3. Last Refreshed"];
@@ -35,6 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
             close.textContent = data["4. close"];
             volume.textContent = data["5. volume"];
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            message.textContent = "Invalid Request";
+        })
     });
 });

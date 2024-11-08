@@ -14,18 +14,7 @@ const msArr = [];
 http.createServer(function (req, res) {
     // Route the request based on the URL
     if (req.method === 'GET' && req.url === '/') { // Serve the index.html page
-        let replace = ["{{microservices}}", ""];
-        for (let i = 0; i < msArr.length; i++) {
-            replace[1] = replace[1] +=
-                "<div class=\"row\"> \
-                <div class=\"col-12 col-sm-6 col-lg-8\"> \
-                    <a target=\"_blank\" href=\"" + msArr[i]["addr"] + "\">" + msArr[i]["name"] + "</a> \
-                </div >\
-                <div class=\"col-6 col-lg-4\">" + msArr[i]["status"] + "</div > \
-            </div > ";
-        }
-
-        serveFile(res, path.join(staticDir, 'index.html'), replace);
+        serveFile(res, path.join(staticDir, 'index.html'));
 
     } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices so js can auto update
         returnMicroservices(req, res);

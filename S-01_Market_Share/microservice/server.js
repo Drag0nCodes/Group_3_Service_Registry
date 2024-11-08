@@ -8,7 +8,7 @@ const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
 
 // Microservice ID for heartbeat
-const serviceId = 'S-01';
+const serviceId = 'S-01: Market Share Calculator';
 // Array of registries
 let regs = [];
 
@@ -127,25 +127,19 @@ function getApiData(callback, symbol) {
                         // Parse the JSON data
                         let jsonData = JSON.parse(data);
 
-                        // Extract specific fields, e.g., "Meta Data" and "Time Series (5min)"
-                        let metaData = jsonData["Meta Data"];
-                        let timeSeries = jsonData["Time Series (5min)"];
+                        if (jsonData["Error Message"]) {
+                            callback("Error");
+                        } else {
+                            // Extract specific fields, e.g., "Meta Data" and "Time Series (5min)"
+                            let metaData = jsonData["Meta Data"];
+                            let timeSeries = jsonData["Time Series (5min)"];
 
-                        // You can extract specific information, for example, the latest time series data
-                        let latestTime = Object.keys(timeSeries)[0]; // Get the latest time key
-                        let latestData = timeSeries[latestTime]; // Get the data for the latest time
+                            // You can extract specific information, for example, the latest time series data
+                            let latestTime = Object.keys(timeSeries)[0]; // Get the latest time key
+                            let latestData = timeSeries[latestTime]; // Get the data for the latest time
 
-                        // Create a string to show relevant information in the HTML
-                        let apiDataString = `
-                    Symbol: ${metaData["2. Symbol"]} \n
-                    Last Refreshed: ${metaData["3. Last Refreshed"]} \n
-                    Latest Open: ${latestData["1. open"]} \n
-                    Latest Close: ${latestData["4. close"]} \n
-                    Latest Volume: ${latestData["5. volume"]}
-                `;
-
-                        callback(Object.assign({}, metaData, latestData)); // Pass the stringified data to the callback
-
+                            callback(Object.assign({}, metaData, latestData)); // Pass the stringified data to the callback
+                        }
                     } catch (error) {
                         console.error('Error parsing JSON: ' + error.message);
                         callback('Error parsing data, check symbol'); // Handle parsing errors
@@ -174,8 +168,13 @@ function getStock(req, res) {
             const formData = JSON.parse(body);
             const symbol = formData["symbol"].toUpperCase(); // Retrieve the stock symbol input
             getApiData((apiData) => {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(apiData));
+                if (apiData != "Error") {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify(apiData));
+                } else {
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end("Error");
+                }
             }, symbol);
         } catch (err) {
             console.error('Error parsing JSON:', err);

@@ -2,7 +2,7 @@ let regTimeout = 0;
 let deregTimeout = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
-    const registerForm = document.getElementById('registerForm');regurl
+    const registerForm = document.getElementById('registerForm');
     const regUrlInput = document.getElementById('regurl');
     const deregisterForm = document.getElementById('deregisterForm');
     const regMessage = document.getElementById('regMessage');
