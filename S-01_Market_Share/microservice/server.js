@@ -249,12 +249,12 @@ function register(req, res) {
             if (isValidURL(url)) {
                 if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
                     const data = JSON.stringify({
-                       serviceId: serviceId,
-                       myUrl: getServerUrl(port)
-                   });
-                   const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
+                        serviceId: serviceId,
+                        myUrl: getServerUrl(port)
+                    });
+                    const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
 
-                   const options = {
+                    const options = {
                        hostname: regurl.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
                        port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
                        path: '/register',
@@ -278,7 +278,7 @@ function register(req, res) {
                                 regs.push(url);
                                 writeRegs();
                                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Registry Successful", url: url }));
+                                res.end(JSON.stringify({ message: "Success", url: url }));
                                 console.error(`Successfully registered: ${url}`);
                             }
                             else if (responseData === "Already registered") {
@@ -286,11 +286,11 @@ function register(req, res) {
                                 regs.push(url);
                                 writeRegs();
                                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Reregistered Successfully.", url: url }));
+                                res.end(JSON.stringify({ message: "Success", url: url }));
                                 console.error(`Successfully reregistered: ${url}`);
                             } else {
                                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Error registering: " + responseData, url: null }));
+                                res.end(JSON.stringify({ message: "Error: " + responseData, url: null }));
                                 console.error(`Error registering: ${responseData}`);
                             }
                         });
@@ -298,7 +298,7 @@ function register(req, res) {
 
                     regreq.on('error', (error) => {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ message: "Registry could not be contacted", url: null }));
+                        res.end(JSON.stringify({ message: "Could not contact", url: null }));
                         console.error(`Error registering. Response: ${error.message}`);
                     });
 
@@ -345,17 +345,57 @@ function deregister(req, res) {
             var url = formData["deregSelect"];
             const index = regs.indexOf(url);
             if (index > -1) { // only splice array when item is found
-                regs.splice(index, 1); // 2nd parameter means remove one item only
-                writeRegs();
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Deregistery Successful", url: url}));
+                const data = JSON.stringify({
+                    serviceId: serviceId,
+                    myUrl: getServerUrl(port)
+                });
+                const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
 
-                // Should also make a request to the reigstery to deregister it
+                const options = {
+                    hostname: regurl.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+                    port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
+                    path: '/deregister',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': data.length
+                    }
+                };
 
-                console.error(`Successfully deregistered: ${url}`);
+                const regreq = http.request(options, (regres) => {
+                    let responseData = '';
+
+                    regres.on('data', (chunk) => {
+                        responseData += chunk;
+                    });
+
+                    regres.on('end', () => {
+                        regs.splice(index, 1); // Remove registry from array
+                        writeRegs();
+                        if (responseData === "Success") {
+                            console.log(`Registered. Response: ${responseData}`);
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ message: "Success", url: url }));
+                            console.error(`Successfully registered: ${url}`);
+                        } else {
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ message: responseData, url: null }));
+                            console.error(`Error deregistering: ${responseData}`);
+                        }
+                    });
+                });
+
+                regreq.on('error', (error) => {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: "Could not contact", url: null }));
+                    console.error(`Error registering. Response: ${error.message}`);
+                });
+
+                regreq.write(data);
+                regreq.end();
             } else {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Could not find registry", url: null}));
+                res.end(JSON.stringify({ message: "Not in database", url: null}));
             }
         } catch (err) {
             console.error('Error parsing JSON:', err);

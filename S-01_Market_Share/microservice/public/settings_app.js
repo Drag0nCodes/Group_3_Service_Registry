@@ -1,5 +1,9 @@
+let regTimeout = 0;
+let deregTimeout = 0;
+
 document.addEventListener("DOMContentLoaded", () => {
-    const registerForm = document.getElementById('registerForm');
+    const registerForm = document.getElementById('registerForm');regurl
+    const regUrlInput = document.getElementById('regurl');
     const deregisterForm = document.getElementById('deregisterForm');
     const regMessage = document.getElementById('regMessage');
     const deregSelect = document.getElementById('deregSelect');
@@ -30,14 +34,13 @@ document.addEventListener("DOMContentLoaded", () => {
             regMessage.textContent = data["message"]; // Display the server's response
             const newOption = new Option(data["url"], data["url"]);
             deregSelect.add(newOption);
+            regUrlInput.value = "";
         })
         .catch(error => {
             regMessage.textContent = error.message; // Display the server's error message
         });
-        // Reset the regMessage after 5 seconds
-        setTimeout(() => {
-            regMessage.textContent = ''; // Clear the message
-        }, 3000);
+        // Keep message for 3 seconds
+        regTimeout = 3;
     });
 
     deregisterForm.addEventListener('submit', (event) => {
@@ -64,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .then(data => {
             deregMessage.textContent = data["message"]; // Display the server's response
-            if (data["message"] === "Deregistery Successful") {
+            if (data["message"] === "Success") {
                 for (let i = 0; i < deregSelect.options.length; i++) {
                     if (deregSelect.options[i].value === data["url"]) {
                         deregSelect.remove(i); // Remove the option
@@ -74,11 +77,16 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         })
         .catch(error => {
-            deregMessage.textContent = error.message; // Display the server's error message
+            deregMessage.textContent = "bad " + error.message; // Display the server's error message
         });
-        // Reset the deregMessage after 5 seconds
-        setTimeout(() => {
-            deregMessage.textContent = ''; // Clear the message
-        }, 3000);
+        // Keep message for 3 seconds
+        deregTimeout = 3;
     });
 });
+
+setInterval(() => {
+    if (regTimeout <= 0) regMessage.textContent = ''; // Clear the message
+    else regTimeout--;
+    if (deregTimeout === 0) deregMessage.textContent = ''; // Clear the message
+    else deregTimeout--;
+}, 1000); // 1 second

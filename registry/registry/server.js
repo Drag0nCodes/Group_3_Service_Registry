@@ -36,6 +36,9 @@ http.createServer(function (req, res) {
     } else if (req.method === 'POST' && req.url === '/register') {
         registerMS(req, res);
 
+    } else if (req.method === 'POST' && req.url === '/deregister') {
+        deregisterMS(req, res);
+
     } else if (req.method === 'GET') {
         // Serve static files
         serveStaticFile(req, res);
@@ -182,10 +185,9 @@ function registerMS(req, res) {
             // Parse the form data
             const { serviceId, myUrl } = JSON.parse(body);
 
-
             let exists = false;
             for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["name"] === serviceId && msArr[i]["addr"] === myUrl) {
+                if (msArr[i]["addr"] === myUrl) {
                     console.log("Reregister request recieved from " + serviceId + " at " + myUrl);
                     exists = true;
                     res.writeHead(400, { 'Content-Type': 'text/plain' });
@@ -196,7 +198,7 @@ function registerMS(req, res) {
 
             if (!exists) {
                 console.log("Register request recieved from " + serviceId + " at " + myUrl);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.writeHead(400, { 'Content-Type': 'text/plain' });
                 res.end("Success")
 
                 msArr.push({ name: serviceId, status: 'Available', addr: myUrl, timeout: timeout })
@@ -209,8 +211,40 @@ function registerMS(req, res) {
 }
 
 // Function to handle deregistering a microservice to the registry
-function deregisterMS() {
+function deregisterMS(req, res) {
+    let body = '';
 
+    if (req.headers['content-type'] === 'application/json') {
+
+        req.on('data', chunk => {
+            body += chunk;
+        });
+
+        req.on('end', () => {
+            // Parse the form data
+            const { serviceId, myUrl } = JSON.parse(body);
+            console.log("Deregister request recieved from " + serviceId + " at " + myUrl);
+
+            let exists = false;
+            for (let i = 0; i < msArr.length; i++) {
+                if (msArr[i]["addr"] === myUrl) {
+                    exists = true;
+                    msArr.splice(i, 1); // Remove microservice from array
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end('Success');
+                    break;
+                }
+            }
+
+            if (!exists) {
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end('Success');
+            }
+        });
+    } else {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('400 Bad Request');
+    }
 }
 
 function runTimeout() {
