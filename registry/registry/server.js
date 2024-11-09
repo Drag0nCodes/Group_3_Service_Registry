@@ -16,22 +16,22 @@ http.createServer(function (req, res) {
     if (req.method === 'GET' && req.url === '/') { // Serve the index.html page
         serveFile(res, path.join(staticDir, 'index.html'));
 
-    } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices so js can auto update
+    } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices in json format so js can auto update
         returnMicroservices(req, res);
 
     } else if (req.method === 'POST' && req.url === '/') { // Handle a post request to 
         handleFormPost(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/heartbeat') {
+    } else if (req.method === 'POST' && req.url === '/heartbeat') { // Handle heartbeat from ms
         processHeartbeat(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/register') {
+    } else if (req.method === 'POST' && req.url === '/register') { // Handle registery request from ms
         registerMS(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/deregister') {
+    } else if (req.method === 'POST' && req.url === '/deregister') { // Handle deregister request from ms
         deregisterMS(req, res);
 
-    } else if (req.method === 'GET') {
+    } else if (req.method === 'GET') { // Handle other get request
         // Serve static files
         serveStaticFile(req, res);
 
@@ -135,15 +135,14 @@ function processHeartbeat(req, res) {
 
             let exists = false;
 
-            for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["name"] === serviceId) {
+            for (let i = 0; i < msArr.length; i++) { // Check all microservices saved to find which one sent the heartbeat
+                if (msArr[i]["name"] === serviceId) { // if match, update its timeout and status
                     msArr[i]["timeout"] = timeout;
                     msArr[i]["status"] = "Available";
 
-
                     console.log(timestamp + " - Heartbeat recieved from " + serviceId + ": " + status);
 
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.writeHead(200, { 'Content-Type': 'text/plain' }); // Respond acknowledging heartbeat
                     res.end("Received")
                     exists = true;
                     break;
@@ -153,7 +152,7 @@ function processHeartbeat(req, res) {
             if (!exists) {
                 console.log(timestamp + " - Heartbeat recieved from " + serviceId + ". This microservice does not exist in database");
 
-                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.writeHead(400, { 'Content-Type': 'text/plain' }); // Respond that microservice is not registered
                 res.end("Reregister")
             }
         });
@@ -179,7 +178,7 @@ function registerMS(req, res) {
 
             let exists = false;
             for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["addr"] === myUrl) {
+                if (msArr[i]["addr"] === myUrl) { // Url already registered, don't add again to array but still acknowledge
                     console.log("Reregister request recieved from " + serviceId + " at " + myUrl);
                     exists = true;
                     res.writeHead(400, { 'Content-Type': 'text/plain' });
@@ -188,9 +187,9 @@ function registerMS(req, res) {
                 }
             }
 
-            if (!exists) {
+            if (!exists) { // New register request, ack and add to arr
                 console.log("Register request recieved from " + serviceId + " at " + myUrl);
-                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
                 res.end("Success")
 
                 msArr.push({ name: serviceId, status: 'Available', addr: myUrl, timeout: timeout })
@@ -219,7 +218,7 @@ function deregisterMS(req, res) {
 
             let exists = false;
             for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["addr"] === myUrl) {
+                if (msArr[i]["addr"] === myUrl) { // Found ms in array, remove and ack
                     exists = true;
                     msArr.splice(i, 1); // Remove microservice from array
                     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -228,7 +227,7 @@ function deregisterMS(req, res) {
                 }
             }
 
-            if (!exists) {
+            if (!exists) { // Ms not in array, still ack so ms can remove from own list
                 res.writeHead(200, { 'Content-Type': 'text/plain' });
                 res.end('Success');
             }
@@ -249,12 +248,12 @@ function runTimeout() {
     }
 }
 
-// Function to return just the microservices to autoupdate page
+// Function to return just the microservices at json to autoupdate page
 function returnMicroservices(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(msArr));
 }
 
-setInterval(() => {
+setInterval(() => { // Check heartbeat timeouts every second
     runTimeout();
 }, 1000); // 1 second

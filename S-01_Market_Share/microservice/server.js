@@ -12,7 +12,7 @@ const serviceId = 'S-01: Market Share Calculator';
 // Array of registries
 let regs = [];
 
-fs.readFile('regs.json', 'utf8', (err, data) => {
+fs.readFile('regs.json', 'utf8', (err, data) => { // Load the regs.json file into regs array
     if (err) {
         console.error('Error reading regs array:', err);
         return;
@@ -29,20 +29,20 @@ http.createServer(function (req, res) {
     } else if (req.method === 'POST' && req.url === '/getStock') { // Handle a POST request to show stock data
         getStock(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/register') { // Register a new MS
+    } else if (req.method === 'POST' && req.url === '/register') { // Register MS to registry
         register(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/deregister') { // Register a new MS
+    } else if (req.method === 'POST' && req.url === '/deregister') { // Deregister MS from registry
         deregister(req, res);
 
     } else if (req.url === '/settings') { // Serve settings.html if the URL is "/settings"
         let replace = ["{{selections}}", ""];
-        for (let i = 0; i < regs.length; i++) {
+        for (let i = 0; i < regs.length; i++) { // Add the reg urls to the select form
             replace[1] = replace[1] += `<option value=\"${regs[i]}\">${regs[i]}</option>`;
         }
         serveFile(res, path.join(staticDir, 'settings.html'), replace);
 
-    } else if (req.method === 'GET') {
+    } else if (req.method === 'GET') { // Serve other GET requests
         // Serve static files
         serveStaticFile(req, res);
 
@@ -130,11 +130,10 @@ function getApiData(callback, symbol) {
                         if (jsonData["Error Message"]) {
                             callback("Error");
                         } else {
-                            // Extract specific fields, e.g., "Meta Data" and "Time Series (5min)"
+                            // Extract specific fields
                             let metaData = jsonData["Meta Data"];
                             let timeSeries = jsonData["Time Series (5min)"];
 
-                            // You can extract specific information, for example, the latest time series data
                             let latestTime = Object.keys(timeSeries)[0]; // Get the latest time key
                             let latestData = timeSeries[latestTime]; // Get the data for the latest time
 
@@ -186,7 +185,7 @@ function getStock(req, res) {
 
 // Function to send the heartbeat to the registry
 function sendHeartbeat() {
-    const data = JSON.stringify({
+    const data = JSON.stringify({ // Info about the registry
         serviceId: serviceId,
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -194,10 +193,10 @@ function sendHeartbeat() {
     });
 
     for (let i = 0; i < regs.length; i++) {
-        const url = new URL(regs[i]); // This will parse the URL and handle various formats (e.g., with or without ports)
+        const url = new URL(regs[i]); // Parse url
 
         const options = {
-            hostname: url.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+            hostname: url.hostname,  // Extracts the hostname
             port: url.port || (url.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
             path: '/heartbeat',
             method: 'POST',
@@ -207,7 +206,7 @@ function sendHeartbeat() {
             }
         };
 
-        const req = http.request(options, (res) => {
+        const req = http.request(options, (res) => { // Handle response from registry
             let responseData = '';
 
             res.on('data', (chunk) => {
@@ -217,7 +216,7 @@ function sendHeartbeat() {
             res.on('end', () => {
                 console.log(`${regs[i]}: Heartbeat sent. Response: ${responseData}`);
 
-                if (responseData === "Reregister") { // SOMEHOW REGISTER?
+                if (responseData === "Reregister") { // SOMEHOW REREGISTER? Nah...
                     
                 }
             });
@@ -228,7 +227,7 @@ function sendHeartbeat() {
         });
 
         req.write(data);
-        req.end();
+        req.end(); // Send request?
     }
 }
 
@@ -247,14 +246,14 @@ function register(req, res) {
             var url = formData["regurl"];
             if (isValidURL(url)) {
                 if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
-                    const data = JSON.stringify({
+                    const data = JSON.stringify({ // MS info to send to registry 
                         serviceId: serviceId,
                         myUrl: getServerUrl(port)
                     });
-                    const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
+                    const regurl = new URL(url); // Parse url
 
-                    const options = {
-                       hostname: regurl.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+                    const options = { // Options for request
+                       hostname: regurl.hostname,  // Extracts the hostname
                        port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
                        path: '/register',
                        method: 'POST',
@@ -264,7 +263,7 @@ function register(req, res) {
                         }
                     };
 
-                    const regreq = http.request(options, (regres) => {
+                    const regreq = http.request(options, (regres) => {  // Handle response from registry
                         let responseData = '';
 
                         regres.on('data', (chunk) => {
@@ -272,7 +271,7 @@ function register(req, res) {
                         });
 
                         regres.on('end', () => {
-                            if (responseData === "Success") {
+                            if (responseData === "Success") { // Registered successfully
                                 console.log(`Registered. Response: ${responseData}`);
                                 regs.push(url);
                                 writeRegs();
@@ -280,14 +279,14 @@ function register(req, res) {
                                 res.end(JSON.stringify({ message: "Success", url: url }));
                                 console.error(`Successfully registered: ${url}`);
                             }
-                            else if (responseData === "Already registered") {
+                            else if (responseData === "Already registered") { // Already registered, successfully reregistered. Mostly does the same with a different console message
                                 console.log(`Reregistered. Response: ${responseData}`);
                                 regs.push(url);
                                 writeRegs();
                                 res.writeHead(200, { 'Content-Type': 'application/json' });
                                 res.end(JSON.stringify({ message: "Success", url: url }));
                                 console.error(`Successfully reregistered: ${url}`);
-                            } else {
+                            } else { // Could not register in registry from some reason
                                 res.writeHead(400, { 'Content-Type': 'application/json' });
                                 res.end(JSON.stringify({ message: "Error: " + responseData, url: null }));
                                 console.error(`Error registering: ${responseData}`);
@@ -295,7 +294,7 @@ function register(req, res) {
                         });
                     });
 
-                    regreq.on('error', (error) => {
+                    regreq.on('error', (error) => { // Url to registry does not work
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ message: "Could not contact", url: null }));
                         console.error(`Error registering. Response: ${error.message}`);
@@ -320,7 +319,7 @@ function register(req, res) {
     });
 }
 
-function isValidURL(str) {
+function isValidURL(str) { // Check if a string is a url
     try {
         const url = new URL(str);
         return url.protocol === "http:" || url.protocol === "https:"; // Ensure http or https
@@ -341,17 +340,17 @@ function deregister(req, res) {
         // Parse the form data
         try {
             const formData = JSON.parse(body);
-            var url = formData["deregSelect"];
+            var url = formData["deregSelect"]; // Get the registry url to deregister from
             const index = regs.indexOf(url);
-            if (index > -1) { // only splice array when item is found
-                const data = JSON.stringify({
+            if (index > -1) { // only splice array if url is found
+                const data = JSON.stringify({ // Data in request to registry
                     serviceId: serviceId,
                     myUrl: getServerUrl(port)
                 });
-                const regurl = new URL(url); // This will parse the URL and handle various formats (e.g., with or without ports)
+                const regurl = new URL(url); // parse url
 
-                const options = {
-                    hostname: regurl.hostname,  // Extracts the hostname (e.g., 'localhost', 'registry.com')
+                const options = { // Options for req
+                    hostname: regurl.hostname,  // Extracts hostname
                     port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
                     path: '/deregister',
                     method: 'POST',
@@ -361,7 +360,7 @@ function deregister(req, res) {
                     }
                 };
 
-                const regreq = http.request(options, (regres) => {
+                const regreq = http.request(options, (regres) => { // Handle registry respose
                     let responseData = '';
 
                     regres.on('data', (chunk) => {
@@ -369,7 +368,7 @@ function deregister(req, res) {
                     });
 
                     regres.on('end', () => {
-                        regs.splice(index, 1); // Remove registry from array
+                        regs.splice(index, 1); // Always remove registry from array, could maybe be in success, I think not though
                         writeRegs();
                         if (responseData === "Success") {
                             console.log(`Registered. Response: ${responseData}`);
@@ -384,7 +383,7 @@ function deregister(req, res) {
                     });
                 });
 
-                regreq.on('error', (error) => {
+                regreq.on('error', (error) => { // No response from registry
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ message: "Could not contact", url: null }));
                     console.error(`Error registering. Response: ${error.message}`);
@@ -392,11 +391,11 @@ function deregister(req, res) {
 
                 regreq.write(data);
                 regreq.end();
-            } else {
+            } else { // Url not in internal database (regs array)
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ message: "Not in database", url: null}));
             }
-        } catch (err) {
+        } catch (err) { // Invalid json
             console.error('Error parsing JSON:', err);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ message: "Invalid request/JSON", url: null}));
@@ -404,7 +403,7 @@ function deregister(req, res) {
     });
 }
 
-// Get the local network IP address
+// Get the local network IP address of this server
 function getServerUrl(port) {
     const networkInterfaces = os.networkInterfaces();
     let ipAddress = 'localhost'; // default to localhost if no external IP is found
