@@ -1,3 +1,5 @@
+let currSearch = ""
+
 // Auto update the microservice list every couple seconds
 function autoUpdate(){
     update();
@@ -10,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     form.addEventListener("submit", (event) => {
         event.preventDefault(); // Prevents the form from submitting
+        currSearch = document.getElementById("search").value.toLowerCase();
         update();
     });
 });
@@ -32,10 +35,9 @@ function update() {
     .then(data => {
         microserviceList.innerHTML = '';
         if (data.length > 0) { // There is a microservice registered
-            let search = document.getElementById("search").value.toLowerCase();
             let matchedOne = false
             for (var i = 0; i < data.length; i++){ // Add div with the microservice data to the html page  
-                if (data[i]["name"].toLowerCase().includes(search)) {
+                if (data[i]["name"].toLowerCase().includes(currSearch)) {
                     var newMS = document.createElement("div");
                     newMS.className = "row"
 
