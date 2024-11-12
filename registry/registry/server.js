@@ -1,79 +1,49 @@
 'use strict';
 var http = require('http');
-var https = require('https');
 var fs = require('fs');
 var path = require('path');
+const mysql = require('mysql2');
 var port = process.env.PORT || 3000;
 const timeout = 35;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 
-// Registered microservices
-const msArr = [];
-
-// Create the server
-http.createServer(function (req, res) {
-    // Route the request based on the URL
-    if (req.method === 'GET' && req.url === '/') { // Serve the index.html page
-        serveFile(res, path.join(staticDir, 'index.html'));
-
-    } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices in json format so js can auto update
-        returnMicroservices(req, res);
-
-    } else if (req.method === 'POST' && req.url === '/heartbeat') { // Handle heartbeat from ms
-        processHeartbeat(req, res);
-
-    } else if (req.method === 'POST' && req.url === '/register') { // Handle registery request from ms
-        registerMS(req, res);
-
-    } else if (req.method === 'POST' && req.url === '/deregister') { // Handle deregister request from ms
-        deregisterMS(req, res);
-
-    } else if (req.method === 'GET') { // Handle other get request
-        // Serve static files
-        serveStaticFile(req, res);
-
-    } else {
-        // If the route is not found, return 404
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('404 Not Found\n');
-    }
-}).listen(port, () => {
-    console.log(`Registry server running at http://localhost:${port}/`);
+// MySQL database connection
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: 'UWO1014',
+    database: 'service_registry'
 });
 
+// Connect to MySQL
+db.connect((err) => {
+    if (err) {
+        console.error('Error connecting to MySQL:', err.stack);
+        return;
+    }
+    console.log('Connected to MySQL as id ' + db.threadId);
+});
 
-// Function to serve HTML files with replacing data based on array elements
-function serveFile(res, filePath, replace = []) {
-    fs.readFile(filePath, 'utf8', (err, data) => {
+// Load microservices from the database on server start
+function loadMicroservices() {
+    db.query('SELECT * FROM registries', (err, results) => {
         if (err) {
-            // Return a 404 if the file is not found
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end('404 Not Found\n');
+            console.error('Error loading microservices:', err);
         } else {
-            for (let i = 0; i < data.length; i += 2) {
-                data = data.replace(replace[i], replace[i + 1]);
-            }
-
-            // Return the HTML content
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(data);
+            console.log('Loaded microservices from database:', results);
         }
     });
 }
 
-// Function to serve static files (CSS, JS, images, etc.)
+// Serve static files (CSS, JS, images, etc.)
 function serveStaticFile(req, res) {
-    // Resolve the requested file path relative to the public directory
     const filePath = path.join(staticDir, req.url);
-
-    // Check if the file exists
     fs.access(filePath, fs.constants.F_OK, (err) => {
         if (err) {
+            console.error(`File not found: ${filePath}`);
             res.writeHead(404, { 'Content-Type': 'text/plain' });
             res.end('404 Not Found\n');
-            console.log(`Could not get file ${filePath}`);
         } else {
-            // Detect the content type based on file extension
             const extname = path.extname(filePath);
             const mimeTypes = {
                 '.html': 'text/html',
@@ -83,10 +53,7 @@ function serveStaticFile(req, res) {
                 '.jpg': 'image/jpeg',
                 '.gif': 'image/gif'
             };
-
             const contentType = mimeTypes[extname] || 'application/octet-stream';
-
-            // Serve the file as a stream
             res.writeHead(200, { 'Content-Type': contentType });
             const readStream = fs.createReadStream(filePath);
             readStream.pipe(res);
@@ -94,141 +61,135 @@ function serveStaticFile(req, res) {
     });
 }
 
-// Function to process an incoming heartbeaat
-function processHeartbeat(req, res) {
-    let body = '';
-
-    if (req.headers['content-type'] === 'application/json') {
-
-        req.on('data', chunk => {
-            body += chunk;
-        });
-
-        req.on('end', () => {
-            // Parse the form data
-            const { serviceId, status, timestamp } = JSON.parse(body);
-
-            let exists = false;
-
-            for (let i = 0; i < msArr.length; i++) { // Check all microservices saved to find which one sent the heartbeat
-                if (msArr[i]["name"] === serviceId) { // if match, update its timeout and status
-                    msArr[i]["timeout"] = timeout;
-                    msArr[i]["status"] = "Available";
-
-                    console.log(timestamp + " - Heartbeat recieved from " + serviceId + ": " + status);
-
-                    res.writeHead(200, { 'Content-Type': 'text/plain' }); // Respond acknowledging heartbeat
-                    res.end("Received")
-                    exists = true;
-                    break;
-                }
-            }
-
-            if (!exists) {
-                console.log(timestamp + " - Heartbeat recieved from " + serviceId + ". This microservice does not exist in database");
-
-                res.writeHead(400, { 'Content-Type': 'text/plain' }); // Respond that microservice is not registered
-                res.end("Reregister")
-            }
-        });
+// Start server and load initial data
+http.createServer(function (req, res) {
+    console.log(`Received request: ${req.method} ${req.url}`);
+    
+    if (req.method === 'GET' && req.url === '/') {
+        serveFile(res, path.join(staticDir, 'index.html'));
+    } else if (req.method === 'GET' && req.url === '/getMicroservices') {
+        returnMicroservices(req, res);
+    } else if (req.method === 'POST' && req.url === '/') {
+        handleFormPost(req, res);
+    } else if (req.method === 'POST' && req.url === '/heartbeat') {
+        processHeartbeat(req, res);
+    } else if (req.method === 'POST' && req.url === '/register') {
+        registerMS(req, res);
+    } else if (req.method === 'POST' && req.url === '/deregister') {
+        deregisterMS(req, res);
+    } else if (req.method === 'GET') {
+        serveStaticFile(req, res);
     } else {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('400 Bad Request');
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('404 Not Found\n');
     }
+}).listen(port, () => {
+    console.log(`Registry server running at http://localhost:${port}/`);
+    loadMicroservices(); // Load data from MySQL on server start
+});
+
+// Serve HTML files with replaceable data
+function serveFile(res, filePath, replace = []) {
+    console.log(`Serving file: ${filePath}`);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading file:', err);
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found\n');
+        } else {
+            for (let i = 0; i < data.length; i += 2) {
+                data = data.replace(replace[i], replace[i + 1]);
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(data);
+        }
+    });
 }
 
-// Function to handle registering a microservice to the registry
+// Register a new microservice
 function registerMS(req, res) {
     let body = '';
-
-    if (req.headers['content-type'] === 'application/json') {
-
-        req.on('data', chunk => {
-            body += chunk;
-        });
-
-        req.on('end', () => {
-            // Parse the form data
-            const { serviceId, myUrl } = JSON.parse(body);
-
-            let exists = false;
-            for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["addr"] === myUrl) { // Url already registered, don't add again to array but still acknowledge
-                    console.log("Reregister request recieved from " + serviceId + " at " + myUrl);
-                    exists = true;
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end('Already registered');
-                    break;
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+        const { serviceId, myUrl } = JSON.parse(body);
+        
+        console.log(`Registering new service: serviceId = ${serviceId}, url = ${myUrl}`);
+        
+        db.query('INSERT INTO registries (service_id, url, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status="healthy", timestamp=CURRENT_TIMESTAMP', 
+            [serviceId, myUrl, 'healthy'], (err) => {
+                if (err) {
+                    console.error('Error inserting microservice:', err);
+                    res.writeHead(409, { 'Content-Type': 'text/plain' });
+                } else {
+                    console.log(`Service registered: serviceId = ${serviceId}`);
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
                 }
-            }
-
-            if (!exists) { // New register request, ack and add to arr
-                console.log("Register request recieved from " + serviceId + " at " + myUrl);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end("Success")
-
-                msArr.push({ name: serviceId, status: 'Available', addr: myUrl, timeout: timeout })
-            }
-        });
-    } else {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('400 Bad Request');
-    }
+                res.end('Success');
+            });
+    });
 }
 
-// Function to handle deregistering a microservice to the registry
+// Deregister a microservice
 function deregisterMS(req, res) {
     let body = '';
-
-    if (req.headers['content-type'] === 'application/json') {
-
-        req.on('data', chunk => {
-            body += chunk;
-        });
-
-        req.on('end', () => {
-            // Parse the form data
-            const { serviceId, myUrl } = JSON.parse(body);
-            console.log("Deregister request recieved from " + serviceId + " at " + myUrl);
-
-            let exists = false;
-            for (let i = 0; i < msArr.length; i++) {
-                if (msArr[i]["addr"] === myUrl) { // Found ms in array, remove and ack
-                    exists = true;
-                    msArr.splice(i, 1); // Remove microservice from array
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end('Success');
-                    break;
-                }
-            }
-
-            if (!exists) { // Ms not in array, still ack so ms can remove from own list
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+        const { serviceId, myUrl } = JSON.parse(body);
+        console.log(`Deregistering service: serviceId = ${serviceId}`);
+        
+        db.query('DELETE FROM registries WHERE service_id = ?', [serviceId], (err) => {
+            if (err) {
+                console.error('Error deleting microservice:', err);
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+            } else {
+                console.log(`Service deregistered: serviceId = ${serviceId}`);
                 res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end('Success');
             }
+            res.end('Success');
         });
-    } else {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('400 Bad Request');
-    }
+    });
 }
 
-function runTimeout() {
-    for (let i = 0; i < msArr.length; i++) {
-        if (msArr[i]["timeout"] <= 0) continue; // If already timed out, skip
-        if (--msArr[i]["timeout"] <= 0) { // Decrease microservice's timeout val and if <= 0, set to unavailable
-            msArr[i]["status"] = "Unavailable";
-            console.log(`${msArr[i]["name"]} is no longer available due to heartbeat timeout`)
-        }
-    }
+// Process heartbeat and update database timestamp
+function processHeartbeat(req, res) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+        const { serviceId, status, timestamp, myUrl } = JSON.parse(body);
+        
+        console.log(`Received heartbeat from serviceId: ${serviceId}`);
+        
+        db.query('UPDATE registries SET timestamp = CURRENT_TIMESTAMP, status = ? WHERE service_id = ?', 
+            ['healthy', serviceId], (err) => {
+                if (err) console.error('Error updating microservice:', err);
+                else console.log(`Heartbeat processed for serviceId: ${serviceId}`);
+                
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end("Received");
+            });
+    });
 }
 
-// Function to return just the microservices at json to autoupdate page
+// Return microservices in JSON format
 function returnMicroservices(req, res) {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(msArr));
+    console.log('Fetching all microservices from database');
+    db.query('SELECT * FROM registries', (err, results) => {
+        if (err) console.error('Error fetching microservices:', err);
+        else console.log('Microservices retrieved:', results);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(results));
+    });
 }
 
-setInterval(() => { // Check heartbeat timeouts every second
-    runTimeout();
-}, 1000); // 1 second
+// Timeout function to mark services as unavailable if they miss heartbeat
+function runTimeout() {
+    console.log('Running timeout check for microservices');
+    db.query('UPDATE registries SET status = "unhealthy" WHERE timestamp <= NOW() - INTERVAL ? SECOND', 
+        [timeout], (err) => {
+        if (err) console.error('Error updating status:', err);
+        else console.log('Timeout check completed');
+    });
+}
+
+setInterval(runTimeout, 1000); // Check timeouts every second

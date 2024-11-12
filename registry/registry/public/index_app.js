@@ -1,7 +1,7 @@
-let currSearch = ""
+let currSearch = "";
 
 // Auto update the microservice list every couple seconds
-function autoUpdate(){
+function autoUpdate() {
     update();
     setInterval(update, 2000);
 }
@@ -27,53 +27,57 @@ function update() {
     .then(response => {
         if (!response.ok) {
             return response.json().then(errorData => {
-                throw new Error(errorData.message || "An error occured");
+                throw new Error(errorData.message || "An error occurred");
             });
         }
         return response.json(); // Parse the JSON response
     })
     .then(data => {
-        microserviceList.innerHTML = '';
-        if (data.length > 0) { // There is a microservice registered
-            let matchedOne = false
-            for (var i = 0; i < data.length; i++){ // Add div with the microservice data to the html page  
-                if (data[i]["name"].toLowerCase().includes(currSearch)) {
-                    var newMS = document.createElement("div");
-                    newMS.className = "row"
+        microserviceList.innerHTML = ''; // Clear the existing list
+        if (data.length > 0) { // There are registered microservices
+            let matchedOne = false;
 
+            data.forEach(service => { // Loop through each service
+                // Match the current search term with service_id (as "name")
+                if (service["service_id"].toLowerCase().includes(currSearch)) {
+                    var newMS = document.createElement("div");
+                    newMS.className = "row mb-2";
+
+                    // Service ID as Name
                     var name = document.createElement("div");
-                    name.className = "col-12 col-sm-6 col-lg-8"
+                    name.className = "col-12 col-sm-6 col-lg-8";
                     var link = document.createElement("a");
                     link.target = "_blank";
-                    link.href = data[i]["addr"];
-                    link.innerHTML = data[i]["name"];
+                    link.href = service["url"]; // Hidden, but available if we want clickable links
+                    link.innerHTML = service["service_id"]; // Display service_id as the name
                     name.appendChild(link);
 
+                    // Status
                     var status = document.createElement("div");
-                    status.className = "col-6 col-lg-4"
-                    status.innerHTML = data[i]["status"];
+                    status.className = "col-6 col-lg-4";
+                    status.innerHTML = service["status"];
 
                     newMS.appendChild(name);
                     newMS.appendChild(status);
                     microserviceList.appendChild(newMS);
-
                     matchedOne = true;
                 }
-            }
+            });
 
             if (!matchedOne) {
                 var para = document.createElement("p");
                 para.innerHTML = "Search returned zero results";
                 microserviceList.appendChild(para);
             }
-        } else { // No microservices
+        } else { // No microservices are registered
             var para = document.createElement("p");
             para.innerHTML = "No microservices registered";
             microserviceList.appendChild(para);
         }
     })
     .catch(error => {
-        regMessage.textContent = error.message; // Display the server's error message
+        var regMessage = document.createElement("p");
+        regMessage.textContent = error.message;
+        microserviceList.appendChild(regMessage);
     });
 }
-
