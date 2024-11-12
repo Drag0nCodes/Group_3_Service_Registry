@@ -19,9 +19,6 @@ http.createServer(function (req, res) {
     } else if (req.method === 'GET' && req.url === '/getMicroservices') { // Serve the microservices in json format so js can auto update
         returnMicroservices(req, res);
 
-    } else if (req.method === 'POST' && req.url === '/') { // Handle a post request to 
-        handleFormPost(req, res);
-
     } else if (req.method === 'POST' && req.url === '/heartbeat') { // Handle heartbeat from ms
         processHeartbeat(req, res);
 
@@ -94,28 +91,6 @@ function serveStaticFile(req, res) {
             const readStream = fs.createReadStream(filePath);
             readStream.pipe(res);
         }
-    });
-}
-
-// Function to handle the POST request and parse form data
-function handleFormPost(req, res) {
-    let body = '';
-
-    req.on('data', chunk => {
-        body += chunk;
-    });
-
-    req.on('end', () => {
-        // Parse the form data
-        const formData = new URLSearchParams(body);
-        msArr[msArr.length] = formData.get('msurl');
-
-        let replace = ["{{microservices}}", ""];
-        for (let i = 0; i < msArr.length; i++) {
-            replace[1] = replace[1] += "\n" + msArr[i];
-        }
-
-        serveFile(res, path.join(__dirname, 'public/index.html'), replace);
     });
 }
 
