@@ -63,7 +63,7 @@ function serveStaticFile(req, res) {
 
 // Start server and load initial data
 http.createServer(function (req, res) {
-    console.log(`Received request: ${req.method} ${req.url}`);
+    // console.log(`Received request: ${req.method} ${req.url}`);
     
     if (req.method === 'GET' && req.url === '/') {
         serveFile(res, path.join(staticDir, 'index.html'));
@@ -90,7 +90,7 @@ http.createServer(function (req, res) {
 
 // Serve HTML files with replaceable data
 function serveFile(res, filePath, replace = []) {
-    console.log(`Serving file: ${filePath}`);
+    // console.log(`Serving file: ${filePath}`);
     fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
             console.error('Error reading file:', err);
@@ -172,10 +172,10 @@ function processHeartbeat(req, res) {
 
 // Return microservices in JSON format
 function returnMicroservices(req, res) {
-    console.log('Fetching all microservices from database');
+    //console.log('Fetching all microservices from database');
     db.query('SELECT * FROM registries', (err, results) => {
         if (err) console.error('Error fetching microservices:', err);
-        else console.log('Microservices retrieved:', results);
+        //else console.log('Microservices retrieved:', results);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(results));
@@ -184,11 +184,11 @@ function returnMicroservices(req, res) {
 
 // Timeout function to mark services as unavailable if they miss heartbeat
 function runTimeout() {
-    console.log('Running timeout check for microservices');
+    //console.log('Running timeout check for microservices');
     db.query('UPDATE registries SET status = "unhealthy" WHERE timestamp <= NOW() - INTERVAL ? SECOND', 
         [timeout], (err) => {
         if (err) console.error('Error updating status:', err);
-        else console.log('Timeout check completed');
+        //else console.log('Timeout check completed');
     });
 }
 

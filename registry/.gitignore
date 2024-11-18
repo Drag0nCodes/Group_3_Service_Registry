@@ -1,3 +1,5 @@
 registry/registry.njsproj.user
 registry/obj
+registry/node_modules/**
+!registry/node_modules/.package-lock.json
 .vs

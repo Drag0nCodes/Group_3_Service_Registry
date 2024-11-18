@@ -45,7 +45,7 @@ function update() {
 
                     // Service ID as Name
                     var name = document.createElement("div");
-                    name.className = "col-12 col-sm-6 col-lg-8";
+                    name.className = "col-6";
                     var link = document.createElement("a");
                     link.target = "_blank";
                     link.href = service["url"]; // Hidden, but available if we want clickable links
@@ -54,7 +54,7 @@ function update() {
 
                     // Status
                     var status = document.createElement("div");
-                    status.className = "col-6 col-lg-4";
+                    status.className = "col-6";
                     status.innerHTML = service["status"];
 
                     newMS.appendChild(name);
@@ -76,6 +76,7 @@ function update() {
         }
     })
     .catch(error => {
+        microserviceList.innerHTML = ''; // Clear the existing list
         var regMessage = document.createElement("p");
         regMessage.textContent = error.message;
         microserviceList.appendChild(regMessage);
