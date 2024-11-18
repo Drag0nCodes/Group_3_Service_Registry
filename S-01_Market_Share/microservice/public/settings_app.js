@@ -1,12 +1,10 @@
-let regTimeout = 0;
-let deregTimeout = 0;
-
 document.addEventListener("DOMContentLoaded", () => {
     const registerForm = document.getElementById('registerForm');
     const regUrlInput = document.getElementById('regurl');
     const deregisterForm = document.getElementById('deregisterForm');
-    const regMessage = document.getElementById('regMessage');
+    const message = document.getElementById('message');
     const deregSelect = document.getElementById('deregSelect');
+    const toast = document.getElementById('toast');
 
     registerForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -31,13 +29,17 @@ document.addEventListener("DOMContentLoaded", () => {
             return response.json(); // Parse the JSON response
         })
         .then(data => {
-            regMessage.textContent = data["message"]; // Display the server's response
+            toast.className = "toast align-items-center text-bg-primary border-0 position-fixed bottom-0 end-0 m-3";
+            message.textContent = "Successfully registered"; // Display the server's response
             const newOption = new Option(data["url"], data["url"]);
             deregSelect.add(newOption);
             regUrlInput.value = "";
+            showToast();
         })
         .catch(error => {
-            regMessage.textContent = error.message; // Display the server's error message
+            toast.className = "toast align-items-center text-bg-danger border-0 position-fixed bottom-0 end-0 m-3";
+            message.textContent = error.message; // Display the server's error message
+            showToast();
         });
         // Keep message for 3 seconds
         regTimeout = 3;
@@ -66,7 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return response.json(); // Parse the JSON response
         })
         .then(data => {
-            deregMessage.textContent = data["message"]; // Display the server's response
+            toast.className = "toast align-items-center text-bg-primary border-0 position-fixed bottom-0 end-0 m-3";
+            message.textContent = "Successfully deregistered"; // Display the server's response
             if (data["message"] === "Success") {
                 for (let i = 0; i < deregSelect.options.length; i++) {
                     if (deregSelect.options[i].value === data["url"]) {
@@ -75,18 +78,22 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
             }
+            showToast();
         })
         .catch(error => {
-            deregMessage.textContent = "bad " + error.message; // Display the server's error message
+            toast.className = "toast align-items-center text-bg-danger border-0 position-fixed bottom-0 end-0 m-3";
+            message.textContent = error.message; // Display the server's error message
+            showToast();
         });
         // Keep message for 3 seconds
         deregTimeout = 3;
     });
 });
 
-setInterval(() => {
-    if (regTimeout <= 0) regMessage.textContent = ''; // Clear the message
-    else regTimeout--;
-    if (deregTimeout === 0) deregMessage.textContent = ''; // Clear the message
-    else deregTimeout--;
-}, 1000); // 1 second
+function showToast(){
+    const toastElList = [].slice.call(document.querySelectorAll('.toast'));
+            const toastList = toastElList.map(function (toastEl) {
+                return new bootstrap.Toast(toastEl);
+            });
+            toastList.forEach(toast => toast.show());
+}
