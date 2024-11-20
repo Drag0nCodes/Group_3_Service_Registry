@@ -3,7 +3,7 @@ var http = require('http');
 var fs = require('fs');
 var path = require('path');
 const mysql = require('mysql2');
-var port = process.env.PORT || 3000;
+var port = process.env.PORT || 80;
 const timeout = 35;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 
@@ -11,7 +11,7 @@ const staticDir = path.join(__dirname, 'public'); // Set static directory
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'UWO1014',
+    password: 'password',
     database: 'service_registry'
 });
 
