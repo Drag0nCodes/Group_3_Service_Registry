@@ -6,7 +6,21 @@ var path = require('path');
 var port = process.env.PORT || 80;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
-let cachedIP = null
+
+let myip = process.argv[2]
+if (!myip) {
+    throw new Error("No ip argument provided")
+} else {
+    try {
+        if (port == 80) {
+            myip = new URL(`http://${myip}`).href;
+        } else {
+            myip = new URL(`http://${myip}:${port}`).href;
+        }
+    } catch (error) {
+        throw new Error("Provided ip argument invalid")
+    }
+}
 
 // Microservice ID for heartbeat
 const serviceId = 'S-01: Market Share Calculator';
@@ -31,14 +45,10 @@ http.createServer(function (req, res) {
         getStock(req, res);
 
     } else if (req.method === 'POST' && req.url === '/register') { // Register MS to registry
-        getAWSIP((ip) => {
-            register(req, res, ip);
-        });
+        register(req, res, ip);
 
     } else if (req.method === 'POST' && req.url === '/deregister') { // Deregister MS from registry
-        getAWSIP((ip) => {
-            deregister(req, res);
-        });
+        deregister(req, res);
 
     } else if (req.url === '/settings') { // Serve settings.html if the URL is "/settings"
         let replace = ["{{selections}}", ""];
@@ -56,10 +66,7 @@ http.createServer(function (req, res) {
         res.end('404 Not Found\n');
     }
 }).listen(port, () => {
-    console.log(`Server running on port ${port}`);
-    getAWSIP((ip) => {
-        console.log(`Cached ip: ${ip}`);
-    });
+    console.log(`Server running at ${myip}`);
 });
 
 // Function to serve HTML files with replacing data based on array elements
@@ -192,12 +199,12 @@ function getStock(req, res) {
 }
 
 // Function to send the heartbeat to the registry
-function sendHeartbeat(ip) {
+function sendHeartbeat() {
     const data = JSON.stringify({ // Info about the registry
         serviceId: serviceId,
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        myUrl: ip
+        myUrl: myip
     });
 
     for (let i = 0; i < regs.length; i++) {
@@ -240,7 +247,7 @@ function sendHeartbeat(ip) {
 }
 
 // Function to register the microservice to a registry
-function register(req, res, ip) {
+function register(req, res) {
     let body = '';
 
     req.on('data', chunk => {
@@ -256,7 +263,7 @@ function register(req, res, ip) {
                 if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
                     const data = JSON.stringify({ // MS info to send to registry 
                         serviceId: serviceId,
-                        myUrl: ip
+                        myUrl: myip
                     });
                     const regurl = new URL(url); // Parse url
 
@@ -337,7 +344,7 @@ function isValidURL(str) { // Check if a string is a url
 }
 
 // Function to deregister the microservice from a registry
-function deregister(req, res, ip) {
+function deregister(req, res) {
     let body = '';
 
     req.on('data', chunk => {
@@ -353,7 +360,7 @@ function deregister(req, res, ip) {
             if (index > -1) { // only splice array if url is found
                 const data = JSON.stringify({ // Data in request to registry
                     serviceId: serviceId,
-                    myUrl: ip
+                    myUrl: myip
                 });
                 const regurl = new URL(url); // parse url
 
@@ -411,62 +418,6 @@ function deregister(req, res, ip) {
     });
 }
 
-// Get the local network IP address of this server
-function getServerUrl(port) {
-    const networkInterfaces = os.networkInterfaces();
-    let ipAddress = 'localhost'; // default to localhost if no external IP is found
-
-    // Loop through network interfaces and find a non-internal IPv4 address
-    for (const interfaceName of Object.keys(networkInterfaces)) {
-        for (const network of networkInterfaces[interfaceName]) {
-            if (network.family === 'IPv4' && !network.internal) {
-                ipAddress = network.address;
-                break;
-            }
-        }
-    }
-
-    return `http://${ipAddress}:${port}`;
-}
-
-// Method to get the public ip of the ec2 instance when running on aws
-function getAWSIP(callback) {
-    if (cachedIP) {
-        callback(cachedIP);
-        console.log(`my ip is ${cachedIP}`);
-        return;
-    }
-
-    const options = {
-        hostname: '169.254.169.254',
-        path: '/latest/meta-data/public-ipv4',
-        method: 'GET',
-    };
-
-    const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-            cachedIP = data;
-            console.log(`my ip is ${cachedIP}`);
-            callback(data);
-        });
-    });
-    req.on('error', (err) => {
-        cachedIP = getServerUrl(port);
-        console.log(`my ip is ${cachedIP}`);
-        callback(cachedIP);
-        return
-    });
-    req.setTimeout(1000, () => {
-        cachedIP = getServerUrl(port);
-        console.log(`my ip is ${cachedIP}`);
-        callback(cachedIP);
-        return
-    });
-    req.end();
-}
-
 // Save the regs array to a json file
 function writeRegs() {
     fs.writeFile('regs.json', JSON.stringify(regs, null, 2), (err) => {
@@ -478,9 +429,7 @@ function writeRegs() {
 
 // Set an interval to send the heartbeat every 15 seconds
 setInterval(() => {
-    getAWSIP((ip) => {
-        sendHeartbeat(ip);
-    });
+    sendHeartbeat();
 }, 15000); // 15 seconds
 
 
