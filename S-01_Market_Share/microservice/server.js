@@ -3,7 +3,7 @@ var http = require('http');
 var https = require('https');
 var fs = require('fs');
 var path = require('path');
-var port = process.env.PORT || 1337;
+var port = process.env.PORT || 80;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
 
