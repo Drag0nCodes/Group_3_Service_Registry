@@ -51,7 +51,7 @@ http.createServer(function (req, res) {
         res.end('404 Not Found\n');
     }
 }).listen(port, () => {
-    console.log(`Server running at ${getServerUrl(port) }`);
+    console.log(`Server running on port ${port}`);
 });
 
 // Function to serve HTML files with replacing data based on array elements
@@ -189,7 +189,7 @@ function sendHeartbeat() {
         serviceId: serviceId,
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        myUrl: getServerUrl(port)
+        myUrl: getAWSIP()
     });
 
     for (let i = 0; i < regs.length; i++) {
@@ -217,7 +217,7 @@ function sendHeartbeat() {
                 console.log(`${regs[i]}: Heartbeat sent. Response: ${responseData}`);
 
                 if (responseData === "Reregister") { // SOMEHOW REREGISTER? Nah...
-                    
+
                 }
             });
         });
@@ -248,18 +248,18 @@ function register(req, res) {
                 if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
                     const data = JSON.stringify({ // MS info to send to registry 
                         serviceId: serviceId,
-                        myUrl: getServerUrl(port)
+                        myUrl: getAWSIP()
                     });
                     const regurl = new URL(url); // Parse url
 
                     const options = { // Options for request
-                       hostname: regurl.hostname,  // Extracts the hostname
-                       port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
-                       path: '/register',
-                       method: 'POST',
-                       headers: {
-                           'Content-Type': 'application/json',
-                           'Content-Length': data.length
+                        hostname: regurl.hostname,  // Extracts the hostname
+                        port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
+                        path: '/register',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Content-Length': data.length
                         }
                     };
 
@@ -345,7 +345,7 @@ function deregister(req, res) {
             if (index > -1) { // only splice array if url is found
                 const data = JSON.stringify({ // Data in request to registry
                     serviceId: serviceId,
-                    myUrl: getServerUrl(port)
+                    myUrl: getAWSIP()
                 });
                 const regurl = new URL(url); // parse url
 
@@ -393,12 +393,12 @@ function deregister(req, res) {
                 regreq.end();
             } else { // Url not in internal database (regs array)
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Not in database", url: null}));
+                res.end(JSON.stringify({ message: "Not in database", url: null }));
             }
         } catch (err) { // Invalid json
             console.error('Error parsing JSON:', err);
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: "Invalid request/JSON", url: null}));
+            res.end(JSON.stringify({ message: "Invalid request/JSON", url: null }));
         }
     });
 }
@@ -419,6 +419,28 @@ function getServerUrl(port) {
     }
 
     return `http://${ipAddress}:${port}`;
+}
+
+// Method to get the public ip of the ec2 instance when running on aws
+function getAWSIP() {
+    const options = {
+        hostname: '169.254.169.254',
+        path: '/latest/meta-data/public-ipv4',
+        method: 'GET',
+    };
+
+    const req = http.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+            return data;
+        });
+        req.on('error', (err) => {
+            return getServerUrl(port);
+        });
+    });
+
+    req.end();
 }
 
 // Save the regs array to a json file
