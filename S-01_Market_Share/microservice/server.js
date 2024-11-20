@@ -433,6 +433,7 @@ function getServerUrl(port) {
 function getAWSIP(callback) {
     if (cachedIP) {
         callback(cachedIP);
+        console.log(`my ip is ${cachedIP}`);
         return;
     }
 
@@ -447,16 +448,19 @@ function getAWSIP(callback) {
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
             cachedIP = data;
+            console.log(`my ip is ${cachedIP}`);
             callback(data);
         });
     });
     req.on('error', (err) => {
         cachedIP = getServerUrl(port);
+        console.log(`my ip is ${cachedIP}`);
         callback(cachedIP);
         return
     });
     req.setTimeout(1000, () => {
         cachedIP = getServerUrl(port);
+        console.log(`my ip is ${cachedIP}`);
         callback(cachedIP);
         return
     });
