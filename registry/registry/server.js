@@ -10,7 +10,7 @@ const staticDir = path.join(__dirname, 'public'); // Set static directory
 // MySQL database connection
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'root',
+    user: 'my_app_user',
     password: 'password',
     database: 'service_registry'
 });
