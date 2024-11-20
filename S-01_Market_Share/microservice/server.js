@@ -45,7 +45,7 @@ http.createServer(function (req, res) {
         getStock(req, res);
 
     } else if (req.method === 'POST' && req.url === '/register') { // Register MS to registry
-        register(req, res, ip);
+        register(req, res);
 
     } else if (req.method === 'POST' && req.url === '/deregister') { // Deregister MS from registry
         deregister(req, res);
