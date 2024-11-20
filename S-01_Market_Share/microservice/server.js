@@ -6,6 +6,7 @@ var path = require('path');
 var port = process.env.PORT || 80;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
+let cachedIP = null
 
 // Microservice ID for heartbeat
 const serviceId = 'S-01: Market Share Calculator';
@@ -30,10 +31,14 @@ http.createServer(function (req, res) {
         getStock(req, res);
 
     } else if (req.method === 'POST' && req.url === '/register') { // Register MS to registry
-        register(req, res);
+        getAWSIP((ip) => {
+            register(req, res, ip);
+        });
 
     } else if (req.method === 'POST' && req.url === '/deregister') { // Deregister MS from registry
-        deregister(req, res);
+        getAWSIP((ip) => {
+            deregister(req, res);
+        });
 
     } else if (req.url === '/settings') { // Serve settings.html if the URL is "/settings"
         let replace = ["{{selections}}", ""];
@@ -52,6 +57,9 @@ http.createServer(function (req, res) {
     }
 }).listen(port, () => {
     console.log(`Server running on port ${port}`);
+    getAWSIP((ip) => {
+        console.log(`Cached ip: ${ip}`);
+    });
 });
 
 // Function to serve HTML files with replacing data based on array elements
@@ -184,12 +192,12 @@ function getStock(req, res) {
 }
 
 // Function to send the heartbeat to the registry
-function sendHeartbeat() {
+function sendHeartbeat(ip) {
     const data = JSON.stringify({ // Info about the registry
         serviceId: serviceId,
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        myUrl: getAWSIP()
+        myUrl: ip
     });
 
     for (let i = 0; i < regs.length; i++) {
@@ -232,7 +240,7 @@ function sendHeartbeat() {
 }
 
 // Function to register the microservice to a registry
-function register(req, res) {
+function register(req, res, ip) {
     let body = '';
 
     req.on('data', chunk => {
@@ -248,7 +256,7 @@ function register(req, res) {
                 if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
                     const data = JSON.stringify({ // MS info to send to registry 
                         serviceId: serviceId,
-                        myUrl: getAWSIP()
+                        myUrl: ip
                     });
                     const regurl = new URL(url); // Parse url
 
@@ -329,7 +337,7 @@ function isValidURL(str) { // Check if a string is a url
 }
 
 // Function to deregister the microservice from a registry
-function deregister(req, res) {
+function deregister(req, res, ip) {
     let body = '';
 
     req.on('data', chunk => {
@@ -345,7 +353,7 @@ function deregister(req, res) {
             if (index > -1) { // only splice array if url is found
                 const data = JSON.stringify({ // Data in request to registry
                     serviceId: serviceId,
-                    myUrl: getAWSIP()
+                    myUrl: ip
                 });
                 const regurl = new URL(url); // parse url
 
@@ -371,10 +379,10 @@ function deregister(req, res) {
                         regs.splice(index, 1); // Always remove registry from array, could maybe be in success, I think not though
                         writeRegs();
                         if (responseData === "Success") {
-                            console.log(`Registered. Response: ${responseData}`);
+                            console.log(`Deregistered. Response: ${responseData}`);
                             res.writeHead(200, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ message: "Success", url: url }));
-                            console.error(`Successfully registered: ${url}`);
+                            console.error(`Successfully deregistered: ${url}`);
                         } else {
                             res.writeHead(200, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ message: responseData, url: null }));
@@ -422,7 +430,12 @@ function getServerUrl(port) {
 }
 
 // Method to get the public ip of the ec2 instance when running on aws
-function getAWSIP() {
+function getAWSIP(callback) {
+    if (cachedIP) {
+        callback(cachedIP);
+        return;
+    }
+
     const options = {
         hostname: '169.254.169.254',
         path: '/latest/meta-data/public-ipv4',
@@ -433,13 +446,20 @@ function getAWSIP() {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
-            return data;
-        });
-        req.on('error', (err) => {
-            return getServerUrl(port);
+            cachedIP = data;
+            callback(data);
         });
     });
-
+    req.on('error', (err) => {
+        cachedIP = getServerUrl(port);
+        callback(cachedIP);
+        return
+    });
+    req.setTimeout(1000, () => {
+        cachedIP = getServerUrl(port);
+        callback(cachedIP);
+        return
+    });
     req.end();
 }
 
@@ -452,10 +472,11 @@ function writeRegs() {
     });
 }
 
-sendHeartbeat();
 // Set an interval to send the heartbeat every 15 seconds
 setInterval(() => {
-    sendHeartbeat();
+    getAWSIP((ip) => {
+        sendHeartbeat(ip);
+    });
 }, 15000); // 15 seconds
 
 
