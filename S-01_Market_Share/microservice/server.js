@@ -6,8 +6,9 @@ var path = require('path');
 var port = process.env.PORT || 80;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
+require('dotenv').config();
 
-let myip = process.argv[2]
+let myip = process.env.IP
 if (!myip) {
     throw new Error("No ip argument provided")
 } else {
