@@ -156,18 +156,28 @@ function processHeartbeat(req, res) {
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
         const { serviceId, status, timestamp, myUrl } = JSON.parse(body);
-        
-        console.log(`Received heartbeat from serviceId: ${serviceId}`);
-        
-        db.query('UPDATE registries SET timestamp = CURRENT_TIMESTAMP, status = ? WHERE service_id = ?', 
-            ['healthy', serviceId], (err) => {
-                if (err) console.error('Error updating microservice:', err);
-                else console.log(`Heartbeat processed for serviceId: ${serviceId}`);
-                
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end("Received");
-            });
+
+        db.query(
+            'UPDATE registries SET timestamp = CURRENT_TIMESTAMP, status = ? WHERE service_id = ?',
+            ['healthy', serviceId],
+            (err, results) => {
+                if (err) {
+                    console.error('Error updating microservice:', err);
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.end("Error processing heartbeat");
+                } else if (results.affectedRows === 0) {
+                    console.log(`No matching serviceId found: ${serviceId}`);
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.end("Id not found");
+                } else {
+                    console.log(`Heartbeat processed for serviceId: ${serviceId}`);
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end("Received");
+                }
+            }
+        );
     });
+
 }
 
 // Return microservices in JSON format

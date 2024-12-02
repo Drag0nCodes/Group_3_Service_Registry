@@ -7,34 +7,10 @@ var port = process.env.PORT || 80;
 const staticDir = path.join(__dirname, 'public'); // Set static directory
 const os = require('os');
 require('dotenv').config();
-
-let myip = process.env.IP
-if (!myip) {
-    throw new Error("No ip argument provided")
-} else {
-    try {
-        if (port == 80) {
-            myip = new URL(`http://${myip}`).href;
-        } else {
-            myip = new URL(`http://${myip}:${port}`).href;
-        }
-    } catch (error) {
-        throw new Error("Provided ip argument invalid")
-    }
-}
+const { sendHeartbeat, register, deregister, getMyIP, getRegs } = require('./registryConnect');
 
 // Microservice ID for heartbeat
 const serviceId = 'S-01: Market Share Calculator';
-// Array of registries
-let regs = [];
-
-fs.readFile('regs.json', 'utf8', (err, data) => { // Load the regs.json file into regs array
-    if (err) {
-        console.error('Error reading regs array:', err);
-        return;
-    }
-    regs = JSON.parse(data);
-});
 
 // Create the server
 http.createServer(function (req, res) {
@@ -46,13 +22,38 @@ http.createServer(function (req, res) {
         getStock(req, res);
 
     } else if (req.method === 'POST' && req.url === '/register') { // Register MS to registry
-        register(req, res);
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            // Parse the form data
+            try {
+                const { regurl } = JSON.parse(body); // Get the register url
+                register(serviceId, regurl, res);
+            } catch (err) { // Could not parse json from js
+                console.error('Error parsing JSON:', err);
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: "Inavlid Request", url: null }));
+            }
+        });
 
     } else if (req.method === 'POST' && req.url === '/deregister') { // Deregister MS from registry
-        deregister(req, res);
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            // Parse the form data
+            try {
+                const { deregSelect } = JSON.parse(body);// Get the registry url to deregister from
+                deregister(serviceId, deregSelect, res);
+            } catch (err) { // Invalid json
+                console.error('Error parsing JSON:', err);
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: "Invalid request/JSON", url: null }));
+            }
+        });
 
     } else if (req.url === '/settings') { // Serve settings.html if the URL is "/settings"
         let replace = ["{{selections}}", ""];
+        let regs = getRegs();
         for (let i = 0; i < regs.length; i++) { // Add the reg urls to the select form
             replace[1] = replace[1] += `<option value=\"${regs[i]}\">${regs[i]}</option>`;
         }
@@ -67,7 +68,7 @@ http.createServer(function (req, res) {
         res.end('404 Not Found\n');
     }
 }).listen(port, () => {
-    console.log(`Server running at ${myip}`);
+    console.log(`Server running at ${getMyIP()}`);
 });
 
 // Function to serve HTML files with replacing data based on array elements
@@ -122,53 +123,6 @@ function serveStaticFile(req, res) {
     });
 }
 
-// Function to fetch data from an external API
-function getApiData(callback, symbol) {
-    fs.readFile(path.join(__dirname, 'AV api key.txt'), (err, data) => { // Get the api key
-        if (err) {
-            // Return a 404 if the file is not found
-            console.log("Could not get API key from txt file");
-        } else {
-            https.get('https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=' + symbol + '&interval=5min&apikey=' + data, (apiRes) => {
-                let data = '';
-
-                // Collect data from the API
-                apiRes.on('data', (chunk) => {
-                    data += chunk;
-                });
-
-                // When all the data is received
-                apiRes.on('end', () => {
-                    try {
-                        // Parse the JSON data
-                        let jsonData = JSON.parse(data);
-
-                        if (jsonData["Error Message"]) {
-                            callback("Error");
-                        } else {
-                            // Extract specific fields
-                            let metaData = jsonData["Meta Data"];
-                            let timeSeries = jsonData["Time Series (5min)"];
-
-                            let latestTime = Object.keys(timeSeries)[0]; // Get the latest time key
-                            let latestData = timeSeries[latestTime]; // Get the data for the latest time
-
-                            callback(Object.assign({}, metaData, latestData)); // Pass the stringified data to the callback
-                        }
-                    } catch (error) {
-                        console.error('Error parsing JSON: ' + error.message);
-                        callback('Error parsing data, check symbol'); // Handle parsing errors
-                    }
-                });
-
-            }).on('error', (err) => {
-                console.error('Error fetching API data: ' + err.message);
-                callback('Error fetching data'); // Handle fetch errors
-            });
-        }
-    });
-}
-
 // Function to handle the POST request and parse form data for getting stock info
 function getStock(req, res) {
     let body = '';
@@ -199,238 +153,57 @@ function getStock(req, res) {
     });
 }
 
-// Function to send the heartbeat to the registry
-function sendHeartbeat() {
-    const data = JSON.stringify({ // Info about the registry
-        serviceId: serviceId,
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        myUrl: myip
-    });
-
-    for (let i = 0; i < regs.length; i++) {
-        const url = new URL(regs[i]); // Parse url
-
-        const options = {
-            hostname: url.hostname,  // Extracts the hostname
-            port: url.port || (url.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
-            path: '/heartbeat',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': data.length
-            }
-        };
-
-        const req = http.request(options, (res) => { // Handle response from registry
-            let responseData = '';
-
-            res.on('data', (chunk) => {
-                responseData += chunk;
-            });
-
-            res.on('end', () => {
-                console.log(`${regs[i]}: Heartbeat sent. Response: ${responseData}`);
-
-                if (responseData === "Reregister") { // SOMEHOW REREGISTER? Nah...
-
-                }
-            });
-        });
-
-        req.on('error', (error) => {
-            console.error(`${regs[i]}: Error sending heartbeat. Response: ${error.message}`);
-        });
-
-        req.write(data);
-        req.end(); // Send request?
-    }
-}
-
-// Function to register the microservice to a registry
-function register(req, res) {
-    let body = '';
-
-    req.on('data', chunk => {
-        body += chunk;
-    });
-
-    req.on('end', () => {
-        // Parse the form data
-        try {
-            const formData = JSON.parse(body);
-            var url = formData["regurl"];
-            if (isValidURL(url)) {
-                if (!regs.includes(url)) { // Valid URL and does not already exist is regs array, send request to add registry
-                    const data = JSON.stringify({ // MS info to send to registry 
-                        serviceId: serviceId,
-                        myUrl: myip
-                    });
-                    const regurl = new URL(url); // Parse url
-
-                    const options = { // Options for request
-                        hostname: regurl.hostname,  // Extracts the hostname
-                        port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
-                        path: '/register',
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Content-Length': data.length
-                        }
-                    };
-
-                    const regreq = http.request(options, (regres) => {  // Handle response from registry
-                        let responseData = '';
-
-                        regres.on('data', (chunk) => {
-                            responseData += chunk;
-                        });
-
-                        regres.on('end', () => {
-                            if (responseData === "Success") { // Registered successfully
-                                console.log(`Registered. Response: ${responseData}`);
-                                regs.push(url);
-                                writeRegs();
-                                res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Success", url: url }));
-                                console.error(`Successfully registered: ${url}`);
-                            }
-                            else if (responseData === "Already registered") { // Already registered, successfully reregistered. Mostly does the same with a different console message
-                                console.log(`Reregistered. Response: ${responseData}`);
-                                regs.push(url);
-                                writeRegs();
-                                res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Success", url: url }));
-                                console.error(`Successfully reregistered: ${url}`);
-                            } else { // Could not register in registry from some reason
-                                res.writeHead(400, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ message: "Error: " + responseData, url: null }));
-                                console.error(`Error registering: ${responseData}`);
-                            }
-                        });
-                    });
-
-                    regreq.on('error', (error) => { // Url to registry does not work
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ message: "Could not contact", url: null }));
-                        console.error(`Error registering. Response: ${error.message}`);
-                    });
-
-                    regreq.write(data);
-                    regreq.end();
-
-                } else { // microseervice already registered in registry
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ message: "Already registered", url: null }));
-                }
-            } else { // registry url not valid url
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Invalid URL", url: null }));
-            }
-        } catch (err) { // Could not parse json from js
-            console.error('Error parsing JSON:', err);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: "Inavlid Request", url: null }));
-        }
-    });
-}
-
-function isValidURL(str) { // Check if a string is a url
-    try {
-        const url = new URL(str);
-        return url.protocol === "http:" || url.protocol === "https:"; // Ensure http or https
-    } catch (error) {
-        return false;
-    }
-}
-
-// Function to deregister the microservice from a registry
-function deregister(req, res) {
-    let body = '';
-
-    req.on('data', chunk => {
-        body += chunk;
-    });
-
-    req.on('end', () => {
-        // Parse the form data
-        try {
-            const formData = JSON.parse(body);
-            var url = formData["deregSelect"]; // Get the registry url to deregister from
-            const index = regs.indexOf(url);
-            if (index > -1) { // only splice array if url is found
-                const data = JSON.stringify({ // Data in request to registry
-                    serviceId: serviceId,
-                    myUrl: myip
-                });
-                const regurl = new URL(url); // parse url
-
-                const options = { // Options for req
-                    hostname: regurl.hostname,  // Extracts hostname
-                    port: regurl.port || (regurl.protocol === 'https:' ? 443 : 80),  // Default port based on protocol
-                    path: '/deregister',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': data.length
-                    }
-                };
-
-                const regreq = http.request(options, (regres) => { // Handle registry respose
-                    let responseData = '';
-
-                    regres.on('data', (chunk) => {
-                        responseData += chunk;
-                    });
-
-                    regres.on('end', () => {
-                        regs.splice(index, 1); // Always remove registry from array, could maybe be in success, I think not though
-                        writeRegs();
-                        if (responseData === "Success") {
-                            console.log(`Deregistered. Response: ${responseData}`);
-                            res.writeHead(200, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ message: "Success", url: url }));
-                            console.error(`Successfully deregistered: ${url}`);
-                        } else {
-                            res.writeHead(200, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ message: responseData, url: null }));
-                            console.error(`Error deregistering: ${responseData}`);
-                        }
-                    });
-                });
-
-                regreq.on('error', (error) => { // No response from registry
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ message: "Could not contact", url: null }));
-                    console.error(`Error registering. Response: ${error.message}`);
-                });
-
-                regreq.write(data);
-                regreq.end();
-            } else { // Url not in internal database (regs array)
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: "Not in database", url: null }));
-            }
-        } catch (err) { // Invalid json
-            console.error('Error parsing JSON:', err);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: "Invalid request/JSON", url: null }));
-        }
-    });
-}
-
-// Save the regs array to a json file
-function writeRegs() {
-    fs.writeFile('regs.json', JSON.stringify(regs, null, 2), (err) => {
+// Function to fetch data from an external API
+function getApiData(callback, symbol) {
+    fs.readFile(path.join(__dirname, 'key.txt'), (err, data) => { // Get the api key
         if (err) {
-            console.error('Error writing file:', err);
+            // Return a 404 if the file is not found
+            console.log("Could not get API key from txt file");
+        } else {
+            https.get('https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + data, (apiRes) => {
+                let data = '';
+
+                // Collect data from the API
+                apiRes.on('data', chunk => data += chunk);
+
+                // When all the data is received
+                apiRes.on('end', () => {
+                    try {
+                        // Parse the JSON data
+                        let jsonData = JSON.parse(data);
+
+                        if (jsonData["Information"]) {
+                            callback("API limit reached")
+                        } else if (jsonData["Country"] != "USA") {
+                            callback("Enter valid stock traded in the US");
+                        } else {
+                            let result = {
+                                name: jsonData["Name"],
+                                sect: jsonData["Sector"].split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
+                                cap: `$${parseInt(jsonData["MarketCapitalization"]).toLocaleString()}`,
+                                price: `$${(jsonData["MarketCapitalization"] / jsonData["SharesOutstanding"]).toLocaleString()}`,
+                                pcnt: `${(jsonData["MarketCapitalization"] / 55200000000000 * 100).toFixed(3)}%`
+                            };
+
+                            callback(result); // Pass the stringified data to the callback
+                        }
+                    } catch (error) {
+                        console.error('Error parsing JSON: ' + error.message);
+                        callback('Error parsing data, check symbol'); // Handle parsing errors
+                    }
+                });
+
+            }).on('error', (err) => {
+                console.error('Error fetching API data: ' + err.message);
+                callback('Error fetching data'); // Handle fetch errors
+            });
         }
     });
 }
 
 // Set an interval to send the heartbeat every 15 seconds
 setInterval(() => {
-    sendHeartbeat();
+    sendHeartbeat(serviceId);
 }, 15000); // 15 seconds
 
 

@@ -2,11 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const getStockForm = document.getElementById('getStockForm');
     const table = document.getElementById('table');
     const message = document.getElementById('message');
-    const stock = document.getElementById('stock');
-    const refresh = document.getElementById('refresh');
-    const open = document.getElementById('open');
-    const close = document.getElementById('close');
-    const volume = document.getElementById('volume');
+    const company = document.getElementById('company');
+    const sector = document.getElementById('sector');
+    const price = document.getElementById('price');
+    const cap = document.getElementById('cap');
+    const percent = document.getElementById('percent');
 
     getStockForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -29,17 +29,23 @@ document.addEventListener("DOMContentLoaded", () => {
             return response.json(); // Parse the JSON response
         })
         .then(data => {
-            message.textContent = "";
-            table.style.display = "flex";
-            stock.textContent = data["2. Symbol"]; // Display the server's response
-            refresh.textContent = data["3. Last Refreshed"];
-            open.textContent = data["1. open"];
-            close.textContent = data["4. close"];
-            volume.textContent = data["5. volume"];
+            if (typeof data === 'string'){
+                message.textContent = data;
+                table.style.display = "none";
+            } else {
+                message.textContent = "";
+                table.style.display = "flex";
+                company.textContent = data["name"]; // Display the server's response
+                sector.textContent = data["sect"];
+                price.textContent = data["price"];
+                cap.textContent = data["cap"];
+                percent.textContent = data["pcnt"];
+            }
         })
         .catch(error => {
             console.error('Error:', error);
-            message.textContent = "Invalid Request";
+            table.style.display = "none";
+            message.textContent = "Error: Invalid Request";
         })
     });
 });
