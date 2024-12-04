@@ -2,4 +2,5 @@ microservice/microservice.njsproj.user
 microservice/key.txt
 microservice/obj
 microservice/regs.json
+microservice/node_modules
 .vs
