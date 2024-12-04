@@ -1,0 +1,39 @@
+.starter-template {
+  padding: 3rem 1.5rem;
+  margin: 0 auto;
+  max-width: 600px; /* Optional: set a max-width to control the width */
+}
+
+body {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+h3, h5 {
+  margin-top: 2rem;
+}
+
+.row {
+  margin-bottom: 1rem;
+  max-width: 600px;
+  display: none;
+}
+.row .row {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+[class*="col-"] {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  background-color: rgba(86, 61, 124, .15);
+  border: 1px solid rgba(86, 61, 124, .2);
+}
+
+hr {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.search {
+  width: 300px;
+}
