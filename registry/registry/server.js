@@ -10,7 +10,7 @@ const staticDir = path.join(__dirname, 'public'); // Set static directory
 // MySQL database connection
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'my_app_user',
+    user: 'root',
     password: 'password',
     database: 'service_registry'
 });
@@ -69,8 +69,6 @@ http.createServer(function (req, res) {
         serveFile(res, path.join(staticDir, 'index.html'));
     } else if (req.method === 'GET' && req.url === '/getMicroservices') {
         returnMicroservices(req, res);
-    } else if (req.method === 'POST' && req.url === '/') {
-        handleFormPost(req, res);
     } else if (req.method === 'POST' && req.url === '/heartbeat') {
         processHeartbeat(req, res);
     } else if (req.method === 'POST' && req.url === '/register') {
