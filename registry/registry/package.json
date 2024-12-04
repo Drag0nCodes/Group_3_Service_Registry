@@ -9,6 +9,8 @@
   "devDependencies": {
     "eslint": "^8.21.0"
   },
-  "eslintConfig": {
+  "eslintConfig": {},
+  "dependencies": {
+    "mysql2": "^3.11.5"
   }
 }
